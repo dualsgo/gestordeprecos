@@ -85,7 +85,7 @@ fileInput.addEventListener('change', (e) => {
 });
 
 btnPrint.addEventListener('click', () => {
-    window.print();
+    if (window.generatePrintReport) window.generatePrintReport('full');
 });
 
 btnNew.addEventListener('click', () => {
@@ -826,7 +826,7 @@ document.getElementById('btn-generate-report').addEventListener('click', () => {
         </table>
         
         <div style="margin-top: 20px;">
-            <button class="btn-print" onclick="window.print()">Imprimir Relatório Final</button>
+            <button class="btn-print" onclick="if(window.generatePrintReport) window.generatePrintReport('scan')">Imprimir Relatório Final</button>
         </div>
     `;
 
@@ -876,4 +876,168 @@ async function runAutoScraperInBackground() {
     }
 
     if(scraperIndicator) scraperIndicator.classList.remove('visible');
+}
+
+// === GERADOR DE RELATÓRIO PDF PERSONALIZADO ===
+window.generatePrintReport = function(mode = 'full') {
+    if (!currentGlobalData) return;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    function fmtMoney(v) { return v > 0 ? `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'; }
+
+    const imgThumb = (codInt) => {
+        const img = getProductImage(codInt);
+        return img ? `<img src="${img}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #eee;" />` : '<span style="font-size:1.4rem;">📦</span>';
+    };
+
+    let title = 'Relatório de Alteração de Preços';
+    let contentHtml = '';
+    let summaryHtml = '';
+
+    if (mode === 'full') {
+        const totalItens = (currentGlobalData.aumentos?.length || 0) + (currentGlobalData.entradasOferta?.length || 0) + 
+                           (currentGlobalData.rebaixas?.length || 0) + (currentGlobalData.terminosOferta?.length || 0);
+
+        summaryHtml = `
+        <div class="summary-bar">
+          <div class="summary-box danger"><div class="count">${currentGlobalData.aumentos?.length || 0}</div><div class="label">Aumentos</div></div>
+          <div class="summary-box success"><div class="count">${currentGlobalData.entradasOferta?.length || 0}</div><div class="label">Entradas de Oferta</div></div>
+          <div class="summary-box info"><div class="count">${currentGlobalData.rebaixas?.length || 0}</div><div class="label">Rebaixas</div></div>
+          <div class="summary-box warning"><div class="count">${currentGlobalData.terminosOferta?.length || 0}</div><div class="label">Términos de Oferta</div></div>
+          <div class="summary-box"><div class="count">${totalItens}</div><div class="label">Total de Itens</div></div>
+        </div>`;
+
+        const buildSection = (secTitle, color, items, renderRow) => {
+            if (!items || !items.length) return '';
+            return `
+            <div style="margin-bottom:28px; page-break-inside:avoid;">
+                <div style="background:${color}; color:white; padding:8px 12px; font-weight:bold; border-radius:6px 6px 0 0;">${secTitle} (${items.length} itens)</div>
+                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead><tr style="background:#f5f5f5; text-align:left;">
+                        <th style="padding:6px;">Foto</th><th style="padding:6px;">SAP</th><th style="padding:6px;">Produto</th><th style="padding:6px;">Estoque</th><th style="padding:6px;">Preços</th>
+                    </tr></thead>
+                    <tbody>${items.map(item => `
+                        <tr style="border-bottom:1px solid #ddd;">
+                            <td style="padding:6px;">${imgThumb(item.codInt)}</td>
+                            <td style="padding:6px;">${item.codInt}</td>
+                            <td style="padding:6px;"><strong>${item.mercadoria}</strong><br><small style="color:#666;">EAN: ${item.ean}</small></td>
+                            <td style="padding:6px;">${item.estoque}</td>
+                            <td style="padding:6px;">${renderRow(item)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        };
+
+        contentHtml += buildSection('🔴 AUMENTOS', '#ef4444', currentGlobalData.aumentos, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
+        contentHtml += buildSection('🟠 TÉRMINOS DE OFERTA', '#f59e0b', currentGlobalData.terminosOferta, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
+        contentHtml += buildSection('🟢 ENTRADAS DE OFERTA', '#10b981', currentGlobalData.entradasOferta, i => `Para <strong>${fmtMoney(i.promocao)}</strong>`);
+        contentHtml += buildSection('🔵 REBAIXAS', '#3b82f6', currentGlobalData.rebaixas, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
+
+    } else if (mode === 'scan') {
+        title = 'Relatório de Varredura - Prevenção a Erros de Preço';
+        const collabName = document.getElementById('collaborator-name')?.value || 'Não informado';
+        
+        // Identificar produtos únicos que foram resolvidos
+        const resolvidosMap = new Map();
+        completedScans.forEach(s => {
+            if (s.status === 'Resolvido') {
+                resolvidosMap.set(s.codInt, s);
+            }
+        });
+        
+        const naoEncontradosMap = new Map();
+        completedScans.forEach(s => {
+            if (s.status === 'Pendente' && !resolvidosMap.has(s.codInt)) {
+                naoEncontradosMap.set(s.codInt, s);
+            }
+        });
+
+        const pendentesQueue = scanQueue.filter(q => !resolvidosMap.has(q.codInt) && !naoEncontradosMap.has(q.codInt));
+
+        const uniqResolvidos = Array.from(resolvidosMap.values());
+        const uniqNaoEncontrados = Array.from(naoEncontradosMap.values());
+        const uniqTotal = uniqResolvidos.length + uniqNaoEncontrados.length + pendentesQueue.length;
+
+        summaryHtml = `
+        <div class="summary-bar">
+          <div class="summary-box info"><div class="count">${collabName}</div><div class="label">Colaborador</div></div>
+          <div class="summary-box success"><div class="count">${uniqResolvidos.length}</div><div class="label">Etiqueta Trocada</div></div>
+          <div class="summary-box warning"><div class="count">${uniqNaoEncontrados.length}</div><div class="label">Não Encontrados</div></div>
+          <div class="summary-box danger"><div class="count">${pendentesQueue.length}</div><div class="label">Não Verificados</div></div>
+          <div class="summary-box"><div class="count">${uniqTotal}</div><div class="label">Total da Varredura</div></div>
+        </div>`;
+
+        const buildTable = (arr) => {
+            if (!arr || !arr.length) return '<p style="color:#666; font-size:0.9rem;">Nenhum item nesta categoria.</p>';
+            return `
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead><tr style="background:#f5f5f5; text-align:left;">
+                    <th style="padding:6px;">Foto</th><th style="padding:6px;">SAP</th><th style="padding:6px;">Produto</th><th style="padding:6px;">Status</th><th style="padding:6px;">Locais / Observações</th>
+                </tr></thead>
+                <tbody>${arr.map(item => `
+                    <tr style="border-bottom:1px solid #ddd;">
+                        <td style="padding:6px;">${imgThumb(item.codInt)}</td>
+                        <td style="padding:6px;">${item.codInt}</td>
+                        <td style="padding:6px;"><strong>${item.mercadoria}</strong></td>
+                        <td style="padding:6px; font-weight:bold; color:${item.status === 'Resolvido' ? '#10b981' : (item.status === 'Pendente' ? '#f59e0b' : '#ef4444')}">${item.status || 'Não Verificado'}</td>
+                        <td style="padding:6px;">${(item.checkedLocations && item.checkedLocations.length > 0) ? item.checkedLocations.join(', ') : '-'}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+        };
+
+        contentHtml += `<div style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#10b981;">✅ Etiquetas Trocadas</h3>${buildTable(uniqResolvidos)}</div>`;
+        if (uniqNaoEncontrados.length > 0) {
+            contentHtml += `<div style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#f59e0b;">⚠️ Não Encontrados na Loja</h3>${buildTable(uniqNaoEncontrados)}</div>`;
+        }
+        if (pendentesQueue.length > 0) {
+            contentHtml += `<div><h3 style="margin-bottom:10px; color:#ef4444;">🔴 Não Verificados pelo Colaborador</h3>${buildTable(pendentesQueue)}</div>`;
+        }
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>${title}</title>
+<style>
+  body { font-family: sans-serif; color: #333; margin: 0; padding: 20px; }
+  @page { size: A4 landscape; margin: 1cm; }
+  @media print { .no-print { display: none !important; } body { padding: 0; } }
+  .header { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items: center; }
+  .header h1 { margin:0; font-size: 1.5rem; }
+  .summary-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .summary-box { flex: 1; min-width: 120px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; text-align: center; }
+  .summary-box .count { font-size: 1.5rem; font-weight: bold; }
+  .summary-box .label { font-size: 0.75rem; text-transform: uppercase; color: #666; margin-top: 5px; }
+  .danger .count { color: #ef4444; } .success .count { color: #10b981; } .info .count { color: #3b82f6; } .warning .count { color: #f59e0b; }
+  .print-btn { padding: 10px 20px; background: #2575fc; color: white; border: none; border-radius: 5px; cursor: pointer; display:block; margin:0 auto 20px auto; font-size: 1rem; font-weight: bold; }
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+<div class="header">
+  <div><h1>📋 ${title}</h1></div>
+  <div style="text-align:right;"><strong>${dateStr}</strong><br>Gerado às ${timeStr}</div>
+</div>
+${summaryHtml}
+${contentHtml}
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+        // Disparar impressão automática na nova guia após carregamento básico
+        win.onload = function() {
+            setTimeout(() => { win.print(); }, 500);
+        };
+    } else {
+        alert("O bloqueador de pop-ups impediu a geração do relatório. Por favor, permita pop-ups para este site.");
+    }
 }
