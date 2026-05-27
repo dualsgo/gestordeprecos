@@ -242,7 +242,9 @@
         <p>Pesquise o produto no Google ou site, copie o "Endereço da Imagem" (botão direito) e cole aqui. O sistema lembrará dela para sempre.</p>
         <p class="search-helper" id="search-helper-links"></p>
         <input type="text" id="img-url-input" placeholder="https://..." />
-        <div class="modal-actions">
+        <div id="modal-scrape-status" style="margin-top: 10px; font-size: 0.9rem; color: #666; font-weight: bold;"></div>
+        <div class="modal-actions" style="margin-top: 15px; flex-wrap: wrap;">
+          <button id="btn-modal-auto-search" class="btn-cancel" style="background: #10b981; color: white;">🤖 Tentar Busca Automática</button>
           <button id="btn-modal-delete" class="btn-cancel" style="background: #ef4444; color: white; display: none;">Excluir Imagem</button>
           <button id="btn-modal-cancel" class="btn-cancel">Cancelar</button>
           <button id="btn-modal-save" class="btn-save">Salvar Imagem</button>

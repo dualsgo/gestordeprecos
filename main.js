@@ -55,6 +55,8 @@ let mobileQrScanner = null;
 let currentGlobalData = null;
 let currentAddingImageCode = null;
 let currentAddingImageName = null;
+let currentAddingImageEan = null;
+window.isScraping = false;
 
 // Varredura (Scan)
 let scanQueue = [];
@@ -120,7 +122,11 @@ btnModeScan.addEventListener('click', () => {
 window.openImageModal = function(codInt, productName, ean) {
     currentAddingImageCode = codInt;
     currentAddingImageName = productName;
+    currentAddingImageEan = ean;
     imgUrlInput.value = '';
+    
+    const statusDiv = document.getElementById('modal-scrape-status');
+    if (statusDiv) statusDiv.textContent = '';
     
     // Links para ajudar a achar a imagem
     const query = encodeURIComponent(productName);
@@ -183,6 +189,34 @@ btnModalSave.addEventListener('click', () => {
     }
     closeImageModal();
 });
+
+const btnModalAutoSearch = document.getElementById('btn-modal-auto-search');
+if (btnModalAutoSearch) {
+    btnModalAutoSearch.addEventListener('click', async () => {
+        if (!currentAddingImageCode) return;
+        const statusDiv = document.getElementById('modal-scrape-status');
+        
+        statusDiv.textContent = '⏳ Buscando imagem no site... aguarde.';
+        statusDiv.style.color = '#f59e0b';
+        
+        const queryId = (currentAddingImageEan && currentAddingImageEan !== 'N/A' && currentAddingImageEan !== '-') ? currentAddingImageEan : currentAddingImageCode;
+        
+        const imageUrl = await scrapeImageFromRiHappy(queryId);
+        if (imageUrl) {
+            statusDiv.textContent = '✅ Imagem encontrada!';
+            statusDiv.style.color = '#10b981';
+            imgUrlInput.value = imageUrl;
+            // Salva e fecha direto
+            saveProductImage(currentAddingImageCode, imageUrl, currentAddingImageName);
+            if (currentGlobalData) renderResults(currentGlobalData);
+            if (btnModeScan.classList.contains('active')) renderCurrentScanCard();
+            setTimeout(closeImageModal, 1000);
+        } else {
+            statusDiv.textContent = '❌ Imagem não encontrada. Tente os links abaixo ou informe a URL manualmente.';
+            statusDiv.style.color = '#ef4444';
+        }
+    });
+}
 
 const btnModalDelete = document.getElementById('btn-modal-delete');
 if (btnModalDelete) {
@@ -684,9 +718,19 @@ function renderCurrentScanCard() {
 
     // Imagem
     const savedImg = getProductImage(item.codInt);
-    let imgDisplay = `<div class="no-image-scan">${getCategoryIcon(item.mercadoria)}</div>`;
+    let imgDisplay = '';
+    
     if (savedImg) {
         imgDisplay = `<img src="${savedImg}" alt="Product" />`;
+    } else {
+        if (window.isScraping) {
+            imgDisplay = `<div class="no-image-scan" style="display:flex; flex-direction:column; gap:10px;">
+                            <div class="spinner" style="width: 30px; height: 30px; border-width: 3px; border-top-color: #10b981; margin:0 auto;"></div>
+                            <span style="font-size:0.9rem; color:#666;">Buscando foto...</span>
+                          </div>`;
+        } else {
+            imgDisplay = `<div class="no-image-scan">${getCategoryIcon(item.mercadoria)}</div>`;
+        }
     }
 
     // Preços
@@ -885,6 +929,9 @@ async function runAutoScraperInBackground() {
     const scraperIndicator = document.getElementById('scraper-indicator');
     const scraperText = document.getElementById('scraper-text');
     if(scraperIndicator) scraperIndicator.classList.add('visible');
+    
+    window.isScraping = true;
+    if (btnModeScan.classList.contains('active')) renderCurrentScanCard();
 
     // Busca uma por uma para não sobrecarregar
     for (const item of itemsToScrape) {
@@ -905,11 +952,13 @@ async function runAutoScraperInBackground() {
             if (btnModeScan.classList.contains('active')) renderCurrentScanCard();
         }
         
-        // Pausa de 1 segundo para não tomar ban do site da RiHappy
+        // Pequena pausa
         await new Promise(r => setTimeout(r, 1000));
     }
 
     if(scraperIndicator) scraperIndicator.classList.remove('visible');
+    window.isScraping = false;
+    if (btnModeScan.classList.contains('active')) renderCurrentScanCard();
 }
 
 // === GERADOR DE RELATÓRIO PDF PERSONALIZADO ===
