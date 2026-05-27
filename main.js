@@ -43,8 +43,6 @@ const btnScannerCancel = document.getElementById('btn-scanner-cancel');
 const scannerStatus = document.getElementById('scanner-status');
 let html5QrcodeScanner = null;
 
-let peer = null;
-
 let currentGlobalData = null;
 let currentAddingImageCode = null;
 let currentAddingImageName = null;
@@ -193,120 +191,96 @@ async function handleFile(file) {
     }
 }
 
-// === LOGICA PEERJS (COMPARTILHAMENTO) ===
-btnShareMobile.addEventListener('click', () => {
+// === LOGICA DE COMPARTILHAMENTO VIA NUVEM (VERCEL KV) ===
+btnShareMobile.addEventListener('click', async () => {
     if (!currentGlobalData) return;
     
     qrModal.classList.remove('hidden');
     qrcodeContainer.innerHTML = '';
-    qrStatus.innerHTML = '<div class="loader-inline"><div class="spinner"></div> Gerando sala P2P segura...</div>';
+    qrStatus.innerHTML = '<div class="loader-inline"><div class="spinner"></div> Criando sessão na nuvem...</div>';
     qrStatus.style.color = '#1565c0';
 
-    // Cria um Peer novo
-    peer = new Peer(); 
-    
-    peer.on('open', (id) => {
-        // Obter o host atual dinamicamente para suportar IPs locais no Vite --host
-        const hostUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-        const connectUrl = `${hostUrl}?peer_id=${id}`;
+    try {
+        const response = await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentGlobalData)
+        });
         
-        // Desenha o QR Code
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || data.message || "Falha ao criar sessão");
+        }
+        
+        const sessionId = data.sessionId;
+        const hostUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+        const connectUrl = `${hostUrl}?session_id=${sessionId}`;
+        
         QRCode.toCanvas(connectUrl, { width: 250, margin: 2 }, function (err, canvas) {
             if (err) console.error(err);
             qrcodeContainer.innerHTML = '';
             qrcodeContainer.appendChild(canvas);
-            qrStatus.textContent = 'Pronto! Escaneie o QR Code com o celular.';
+            qrStatus.textContent = `Sessão [${sessionId}] pronta! Escaneie pelo celular para sincronizar.`;
             qrStatus.style.color = '#2e7d32'; // success
         });
-    });
-
-    peer.on('connection', (connection) => {
-        qrStatus.innerHTML = '<div class="loader-inline"><div class="pulse-anim"></div> Celular conectado! Enviando dados...</div>';
-        qrStatus.style.color = '#e65100'; // warning
         
-        connection.on('open', () => {
-            // Envia o objeto inteiro convertido
-            connection.send(currentGlobalData);
-            setTimeout(() => {
-                qrStatus.textContent = 'Dados transferidos com sucesso! Pode fechar isso.';
-                qrStatus.style.color = '#2e7d32';
-            }, 500);
-        });
-    });
-    
-    peer.on('error', (err) => {
-        console.error(err);
-        qrStatus.textContent = 'Erro ao criar sala. Verifique a internet.';
+    } catch (error) {
+        console.error(error);
+        qrStatus.textContent = `Erro: ${error.message}.`;
         qrStatus.style.color = '#d32f2f'; // error
-    });
+    }
 });
 
 btnQrCancel.addEventListener('click', () => {
     qrModal.classList.add('hidden');
-    if (peer) {
-        peer.destroy();
-        peer = null;
-    }
 });
 
-// Inicialização: Se a URL tiver ?peer_id=, estamos no celular
-window.addEventListener('DOMContentLoaded', () => {
+// Inicialização: Se a URL tiver ?session_id=, estamos no celular (Recepção)
+window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const hostPeerId = urlParams.get('peer_id');
+    const sessionId = urlParams.get('session_id');
     
-    if (hostPeerId) {
+    if (sessionId) {
         mobileLoading.classList.remove('hidden');
         dropZone.style.display = 'none';
+        mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Buscando sessão na nuvem...</div>';
         
-        peer = new Peer();
-        
-        peer.on('open', () => {
-            mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Conectando ao computador...</div>';
+        try {
+            const response = await fetch(`/api/session?id=${sessionId}`);
+            const data = await response.json();
             
-            const connection = peer.connect(hostPeerId);
+            if (!response.ok) {
+                throw new Error(data.error || "Sessão expirada ou não encontrada.");
+            }
             
-            connection.on('open', () => {
-                mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Baixando tabela...</div>';
-            });
+            mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Montando interface...</div>';
             
-            connection.on('data', (data) => {
-                mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Processando dados...</div>';
-                
-                // Simula o processamento do handleFile
-                currentGlobalData = data;
-                startTime = new Date();
-                statStart.textContent = startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
-                statEnd.textContent = '--:--';
-                statDuration.textContent = '-- min';
-                statBox.classList.remove('hidden');
+            // A API Vercel KV retorna diretamente o JSON parseado se ele foi salvo corretamente, 
+            // ou string se escapou duplo. Garantindo:
+            currentGlobalData = typeof data === 'string' ? JSON.parse(data) : data;
+            
+            startTime = new Date();
+            statStart.textContent = startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
+            statEnd.textContent = '--:--';
+            statDuration.textContent = '-- min';
+            statBox.classList.remove('hidden');
 
-                renderResults(data);
-                buildScanQueue(data);
-                resultsContainer.classList.remove('hidden');
-                mobileLoading.classList.add('hidden');
-                
-                // Força abrir o modo varredura
-                btnModeScan.click();
-                
-                runAutoScraperInBackground();
-                
-                // Desconecta e mata o peer (já pegou o que precisava)
-                setTimeout(() => {
-                    peer.destroy();
-                }, 1000);
-            });
+            renderResults(currentGlobalData);
+            buildScanQueue(currentGlobalData);
+            resultsContainer.classList.remove('hidden');
+            mobileLoading.classList.add('hidden');
             
-            connection.on('error', (err) => {
-                mobileStatusText.textContent = 'Erro de conexão P2P.';
-                mobileStatusText.style.color = '#d32f2f';
-            });
-        });
-        
-        peer.on('error', (err) => {
-            mobileStatusText.textContent = 'Falha ao buscar rede P2P.';
-            mobileStatusText.style.color = '#d32f2f';
-            console.error(err);
-        });
+            // Força abrir o modo varredura
+            btnModeScan.click();
+            
+            runAutoScraperInBackground();
+            
+        } catch (error) {
+            console.error(error);
+            mobileStatusText.textContent = `Erro: ${error.message}`;
+            mobileStatusText.style.color = '#ffcdd2'; // light red
+        }
     }
 });
 
