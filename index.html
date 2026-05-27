@@ -64,7 +64,7 @@
               </button>
             </div>
             <div class="right-actions">
-              <button id="btn-share-mobile" class="btn-print" style="background-color: #2196f3; border-color: #2196f3; color: white;">
+              <button id="btn-share-mobile" class="btn-print">
                 📱 Enviar para Celular
               </button>
               <button id="btn-print" class="btn-print">
@@ -256,6 +256,12 @@
           <button id="btn-scanner-cancel" class="btn-cancel">Fechar Leitor</button>
         </div>
       </div>
+    </div>
+
+    <!-- Indicador Flutuante do Scraper (Não bloqueante) -->
+    <div id="scraper-indicator">
+      <div class="spinner" style="width: 20px; height: 20px; border-width: 2px; border-top-color: var(--primary-color);"></div>
+      <span id="scraper-text">Buscando imagens na web...</span>
     </div>
 
     <!-- Bibliotecas P2P, QRCode e Scanner -->

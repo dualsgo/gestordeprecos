@@ -1,19 +1,19 @@
 :root {
-  --primary-color: #62489d;
-  --primary-dark: #4b367c;
+  --primary-color: #6a11cb;
+  --primary-dark: #2575fc;
   --secondary-color: #ffec00;
-  --text-color: #333;
-  --text-light: #666;
-  --bg-color: #f4f6f8;
+  --text-color: #1f2937;
+  --text-light: #6b7280;
+  --bg-color: #f3f4f6;
   --white: #ffffff;
-  --danger-color: #d32f2f;
-  --danger-bg: #ffebee;
-  --success-color: #2e7d32;
-  --success-bg: #e8f5e9;
-  --warning-color: #ed6c02;
-  --warning-bg: #fff4e5;
-  --info-color: #0288d1;
-  --info-bg: #e1f5fe;
+  --danger-color: #ef4444;
+  --danger-bg: #fef2f2;
+  --success-color: #10b981;
+  --success-bg: #ecfdf5;
+  --warning-color: #f59e0b;
+  --warning-bg: #fffbeb;
+  --info-color: #3b82f6;
+  --info-bg: #eff6ff;
 }
 
 * {
@@ -24,9 +24,11 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-color);
+  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+  background-attachment: fixed;
   color: var(--text-color);
   line-height: 1.5;
+  min-height: 100vh;
 }
 
 h1, h2, h3, h4 {
@@ -39,10 +41,14 @@ h1, h2, h3, h4 {
 
 /* Header */
 .app-header {
-  background-color: var(--primary-color);
+  background: rgba(106, 17, 203, 0.85);
+  background: linear-gradient(135deg, rgba(106, 17, 203, 0.9) 0%, rgba(37, 117, 252, 0.9) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: var(--white);
   padding: 1.5rem 0;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -259,11 +265,18 @@ input[type="file"] {
 
 /* Category Cards */
 .category-card {
-  background-color: var(--white);
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  border: 1px solid rgba(255,255,255,0.6);
   margin-bottom: 2rem;
   overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
 }
 
 .card-header {
@@ -833,9 +846,93 @@ tbody tr:hover {
      (O usuário ainda pode usar o Modo Varredura para focar totalmente) */
   th:nth-child(2), td:nth-child(2), /* SAP */
   th:nth-child(3), td:nth-child(3), /* EAN */
-  th:nth-child(5), td:nth-child(5)  /* Referencia */
   {
     display: none;
   }
+}
+
+/* =========================================
+   SISTEMA DE ANIMAÇÕES E LOADERS (NOVO)
+   ========================================= */
+
+/* Spinner Giratório Básico */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+.spinner.light {
+  border-top-color: #fff;
+  border-left-color: rgba(255, 255, 255, 0.3);
+  border-right-color: rgba(255, 255, 255, 0.3);
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pulsação (Pulse) */
+.pulse-anim {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Loader em Linha (Textos de Status) */
+.loader-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Botão Share Mobile com Gradiente */
+#btn-share-mobile {
+  background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 15px rgba(0, 114, 255, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+#btn-share-mobile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 114, 255, 0.4);
+}
+#btn-share-mobile:active {
+  transform: scale(0.95);
+}
+
+/* Overlay do Scraper (Não Bloqueante) */
+#scraper-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  border-radius: 30px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  z-index: 900;
+  transition: all 0.3s ease;
+  transform: translateY(100px);
+  opacity: 0;
+}
+#scraper-indicator.visible {
+  transform: translateY(0);
+  opacity: 1;
 }
 

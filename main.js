@@ -164,7 +164,7 @@ function getDiffBadge(oldPrice, newPrice, isRebaixa = false) {
 }
 
 async function handleFile(file) {
-    dropText.textContent = "Processando seu relatório, aguarde...";
+    dropText.innerHTML = '<div class="loader-inline"><div class="spinner"></div> Processando seu relatório, aguarde...</div>';
     try {
         const data = await processFile(file);
         currentGlobalData = data;
@@ -199,7 +199,7 @@ btnShareMobile.addEventListener('click', () => {
     
     qrModal.classList.remove('hidden');
     qrcodeContainer.innerHTML = '';
-    qrStatus.textContent = 'Gerando sala P2P segura...';
+    qrStatus.innerHTML = '<div class="loader-inline"><div class="spinner"></div> Gerando sala P2P segura...</div>';
     qrStatus.style.color = '#1565c0';
 
     // Cria um Peer novo
@@ -221,7 +221,7 @@ btnShareMobile.addEventListener('click', () => {
     });
 
     peer.on('connection', (connection) => {
-        qrStatus.textContent = 'Celular conectado! Enviando dados...';
+        qrStatus.innerHTML = '<div class="loader-inline"><div class="pulse-anim"></div> Celular conectado! Enviando dados...</div>';
         qrStatus.style.color = '#e65100'; // warning
         
         connection.on('open', () => {
@@ -261,16 +261,16 @@ window.addEventListener('DOMContentLoaded', () => {
         peer = new Peer();
         
         peer.on('open', () => {
-            mobileStatusText.textContent = 'Conectando ao computador...';
+            mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Conectando ao computador...</div>';
             
             const connection = peer.connect(hostPeerId);
             
             connection.on('open', () => {
-                mobileStatusText.textContent = 'Conectado! Baixando tabela...';
+                mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Baixando tabela...</div>';
             });
             
             connection.on('data', (data) => {
-                mobileStatusText.textContent = 'Processando dados...';
+                mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Processando dados...</div>';
                 
                 // Simula o processamento do handleFile
                 currentGlobalData = data;
@@ -719,10 +719,16 @@ async function runAutoScraperInBackground() {
     if (itemsToScrape.length === 0) return;
     console.log(`🤖 Iniciando auto-scrape para ${itemsToScrape.length} produtos sem foto...`);
 
+    const scraperIndicator = document.getElementById('scraper-indicator');
+    const scraperText = document.getElementById('scraper-text');
+    if(scraperIndicator) scraperIndicator.classList.add('visible');
+
     // Busca uma por uma para não sobrecarregar
     for (const item of itemsToScrape) {
         // Se a imagem já foi adicionada manualmente no meio tempo, pula
         if (getProductImage(item.codInt)) continue;
+
+        if(scraperText) scraperText.textContent = `Buscando foto: ${item.mercadoria.substring(0, 15)}...`;
 
         const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean :
                         ((item.fornecedorCod && item.fornecedorCod !== 'N/A' && item.fornecedorCod !== '-') ? item.fornecedorCod : item.codInt);
@@ -740,4 +746,6 @@ async function runAutoScraperInBackground() {
         // Pausa de 1 segundo para não tomar ban do site da RiHappy
         await new Promise(r => setTimeout(r, 1000));
     }
+
+    if(scraperIndicator) scraperIndicator.classList.remove('visible');
 }
