@@ -184,6 +184,8 @@
             <p><span id="scan-current">0</span> de <span id="scan-total">0</span> itens concluídos</p>
           </div>
           
+          <button id="btn-open-scanner" class="btn-new" style="margin: 0 auto 20px auto; display: block; background: #673ab7; color: white; border: none; font-size: 1.1rem; width: 100%; max-width: 400px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(103, 58, 183, 0.3);">📷 Escanear Código de Barras (EAN)</button>
+          
           <div id="scan-card-container" class="scan-card-container">
             <!-- Os cards serão injetados aqui -->
           </div>
@@ -243,9 +245,23 @@
       </div>
     </div>
 
-    <!-- Bibliotecas P2P e QRCode -->
+    <!-- Modal Scanner (Mobile) -->
+    <div id="scanner-modal" class="modal hidden">
+      <div class="modal-content" style="text-align: center; max-width: 500px;">
+        <h3>Escanear Produto</h3>
+        <p>Aponte a câmera para o código de barras (EAN).</p>
+        <div id="reader" style="width: 100%; min-height: 250px; background: #f0f0f0; margin-bottom: 15px; border-radius: 8px; overflow: hidden;"></div>
+        <p id="scanner-status" style="font-size: 0.9rem; color: #666;"></p>
+        <div class="modal-actions" style="justify-content: center;">
+          <button id="btn-scanner-cancel" class="btn-cancel">Fechar Leitor</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bibliotecas P2P, QRCode e Scanner -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

@@ -36,6 +36,13 @@ const qrStatus = document.getElementById('qr-status');
 const mobileLoading = document.getElementById('mobile-loading');
 const mobileStatusText = document.getElementById('mobile-status-text');
 
+// Scanner Mobile
+const btnOpenScanner = document.getElementById('btn-open-scanner');
+const scannerModal = document.getElementById('scanner-modal');
+const btnScannerCancel = document.getElementById('btn-scanner-cancel');
+const scannerStatus = document.getElementById('scanner-status');
+let html5QrcodeScanner = null;
+
 let peer = null;
 
 let currentGlobalData = null;
@@ -414,6 +421,64 @@ function renderResults(data) {
 
 // === LOGICA DO MODO VARREDURA (SCAN) ===
 let completedScans = [];
+
+// === LOGICA DO LEITOR DE CODIGO DE BARRAS (MOBILE) ===
+btnOpenScanner.addEventListener('click', () => {
+    scannerModal.classList.remove('hidden');
+    scannerStatus.textContent = "Aguardando leitura... Posicione o código.";
+    scannerStatus.style.color = "#666";
+
+    if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: { width: 250, height: 150 } },
+            false
+        );
+    }
+
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+});
+
+btnScannerCancel.addEventListener('click', () => {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(e => console.error("Falha ao limpar scanner", e));
+    }
+    scannerModal.classList.add('hidden');
+});
+
+function onScanSuccess(decodedText, decodedResult) {
+    const scannedCode = decodedText.trim();
+    scannerStatus.textContent = `Lido: ${scannedCode}. Buscando...`;
+    scannerStatus.style.color = "blue";
+    
+    // Procura o item na fila de varredura (EAN ou SAP)
+    // Tenta bater com ean exato ou ignorar zeros a esquerda
+    const foundIndex = scanQueue.findIndex(item => {
+        if (item.ean === scannedCode || item.codInt === scannedCode) return true;
+        // Tenta bater sem os zeros a esquerda do EAN caso o sistema ou o leitor retorne diferente
+        if (item.ean && parseInt(item.ean, 10) === parseInt(scannedCode, 10)) return true;
+        return false;
+    });
+
+    if (foundIndex !== -1) {
+        // Encontrou!
+        currentScanIndex = foundIndex;
+        renderCurrentScanCard();
+        
+        // Efeito sonoro simples de beep usando um arquivo livre da web
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
+        audio.play().catch(e => console.log(e)); // Ignora erro se autoplay bloqueado
+        
+        btnScannerCancel.click(); // Fecha modal
+    } else {
+        scannerStatus.textContent = `⚠️ Produto ${scannedCode} não está nesta lista de troca!`;
+        scannerStatus.style.color = "red";
+    }
+}
+
+function onScanFailure(error) {
+    // Ignora chamadas contínuas de frame sem leitura
+}
 
 function buildScanQueue(data) {
     scanQueue = [];
