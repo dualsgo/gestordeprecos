@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestor de Alteração de Preços</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <header class="app-header no-print">
+      <div class="header-content">
+        <div>
+          <h1>Gestor de Prevenção: Erro de Preço</h1>
+          <p>Foco na redução de descontos indevidos priorizando altas de preço no chão de loja.</p>
+        </div>
+        <div id="operation-stats" class="hidden">
+          <div class="stat-box">
+            <span class="stat-label">Início:</span>
+            <span id="stat-start-time" class="stat-value">--:--</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Concluído:</span>
+            <span id="stat-end-time" class="stat-value">--:--</span>
+          </div>
+          <div class="stat-box highlight">
+            <span class="stat-label">Duração:</span>
+            <span id="stat-duration" class="stat-value">-- min</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <div id="drop-zone" class="drop-zone no-print">
+        <div class="drop-content">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+          <h2>Passo 1: Insira o Relatório do Sistema</h2>
+          <div class="instructions-box">
+            <p><strong>1.</strong> Salve o <strong>Relatório Diário</strong> (ou Relatório Circular) no seu computador.</p>
+            <p><strong>2.</strong> Clique no botão azul abaixo ou arraste o arquivo até este quadro branco.</p>
+          </div>
+          <label for="file-input" class="btn-attach">
+            Procurar Arquivo no Computador
+          </label>
+          <input type="file" id="file-input" accept=".xls,.html" />
+          <span id="drop-text" class="status-text">Aguardando você inserir o arquivo...</span>
+        </div>
+      </div>
+
+      <div id="results" class="results-container hidden">
+        <div class="actions-bar no-print">
+          <div class="action-instructions">
+            <h3>Passo 2: Escolha como você quer trabalhar</h3>
+            <p>Você pode imprimir a lista completa (Aumentos, Ofertas e Rebaixas) na tabela. <strong>No Modo Varredura, mostraremos apenas os Aumentos e Términos de Oferta, focando 100% em evitar prejuízos de erro de preço.</strong></p>
+          </div>
+          <div class="actions-wrapper">
+            <div class="left-actions">
+              <button id="btn-mode-table" class="btn-mode active">
+                📊 Modo Tabela (Para Imprimir)
+              </button>
+              <button id="btn-mode-scan" class="btn-mode">
+                🎯 Modo Varredura (Para Celular)
+              </button>
+            </div>
+            <div class="right-actions">
+              <button id="btn-share-mobile" class="btn-print" style="background-color: #2196f3; border-color: #2196f3; color: white;">
+                📱 Enviar para Celular
+              </button>
+              <button id="btn-print" class="btn-print">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                Imprimir Relatório
+              </button>
+              <button id="btn-new" class="btn-new">
+                Começar Novo Arquivo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODO TABELA -->
+        <div id="view-table">
+          <!-- AUMENTO -->
+          <section class="category-card" id="card-aumentos">
+            <div class="card-header danger">
+              <div class="card-title">
+                <span class="icon">📈</span>
+                <h2>AUMENTO DE PREÇO (PRIORIDADE MÁXIMA)</h2>
+              </div>
+              <div class="instructions-box-table">
+                <p><strong>O que você deve fazer:</strong></p>
+                <ol>
+                  <li>Vá até a loja e encontre os produtos desta lista. Verifique em todos os lugares (ponto natural, pontas de gôndola e vitrine).</li>
+                  <li>Imprima as etiquetas com o preço novo (Atual).</li>
+                  <li><strong>Retire a etiqueta antiga e coloque a nova imediatamente.</strong> Se o cliente pagar o preço antigo no caixa, a loja perde dinheiro!</li>
+                </ol>
+              </div>
+            </div>
+            <div class="table-container">
+              <table id="table-aumentos">
+                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Antigo</th><th>Novo Preço</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- OFERTAS -->
+          <section class="category-card" id="card-ofertas">
+            <div class="card-header success">
+              <div class="card-title">
+                <span class="icon">🏷️</span>
+                <h2>ENTRADA DE OFERTA</h2>
+              </div>
+              <div class="instructions-box-table">
+                <p><strong>O que você deve fazer:</strong></p>
+                <ol>
+                  <li>Estes produtos estão entrando em promoção hoje.</li>
+                  <li>Imprima os cartazes promocionais amarelos com o valor da "Oferta".</li>
+                  <li>Coloque na loja para destacar bem o produto para o cliente.</li>
+                </ol>
+              </div>
+            </div>
+            <div class="table-container">
+              <table id="table-ofertas">
+                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Normal</th><th>Preço Oferta</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- REBAIXA -->
+          <section class="category-card" id="card-rebaixas">
+            <div class="card-header info">
+              <div class="card-title">
+                <span class="icon">📉</span>
+                <h2>REBAIXA DE PREÇO (NÃO É OFERTA)</h2>
+              </div>
+              <div class="instructions-box-table">
+                <p><strong>O que você deve fazer:</strong></p>
+                <ol>
+                  <li>O preço base do produto caiu. Isso não é uma promoção amarela.</li>
+                  <li>Imprima etiquetas brancas normais com o "Novo Preço".</li>
+                  <li>Vá até a loja e substitua a etiqueta antiga pela nova.</li>
+                </ol>
+              </div>
+            </div>
+            <div class="table-container">
+              <table id="table-rebaixas">
+                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Antigo</th><th>Novo Preço</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- TÉRMINO DE OFERTA -->
+          <section class="category-card" id="card-terminos">
+            <div class="card-header warning">
+              <div class="card-title">
+                <span class="icon">❌</span>
+                <h2>TÉRMINO DE OFERTA</h2>
+              </div>
+              <div class="instructions-box-table">
+                <p><strong>O que você deve fazer:</strong></p>
+                <ol>
+                  <li>A promoção destes produtos acabou. O preço voltou a subir.</li>
+                  <li>Vá na loja e <strong>retire todos os cartazes e etiquetas amarelas</strong>.</li>
+                  <li>Coloque a etiqueta branca com o preço "Novo Preço" para evitar que o cliente exija o desconto vencido.</li>
+                </ol>
+              </div>
+            </div>
+            <div class="table-container">
+              <table id="table-terminos">
+                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Atual</th><th>Aumento/Rebaixa</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- MODO VARREDURA -->
+        <div id="view-scan" class="hidden">
+          <div class="scan-progress">
+            <div class="progress-bar"><div id="scan-progress-fill" class="progress-fill"></div></div>
+            <p><span id="scan-current">0</span> de <span id="scan-total">0</span> itens concluídos</p>
+          </div>
+          
+          <div id="scan-card-container" class="scan-card-container">
+            <!-- Os cards serão injetados aqui -->
+          </div>
+          
+          <div id="scan-finished-state" class="hidden empty-state" style="max-width: 800px; margin: 0 auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <h2>🎉 Varredura Concluída!</h2>
+            <p>Por favor, informe seu nome para registrar quem realizou a verificação.</p>
+            
+            <div id="scan-finish-form" style="margin: 20px 0;">
+                <input type="text" id="collaborator-name" placeholder="Seu Nome / Matrícula" style="padding: 12px; font-size: 1.1rem; width: 100%; max-width: 300px; border-radius: 8px; border: 2px solid #ddd; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;">
+                <button id="btn-generate-report" class="btn-new" style="background: var(--primary-color); color: white; border: none; padding: 12px 24px;">Gerar Relatório de Varredura</button>
+            </div>
+            
+            <div id="scan-summary-report" class="hidden" style="margin-top: 30px; text-align: left; padding-top: 20px; border-top: 2px dashed #eee;">
+                <!-- O relatório será injetado aqui -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Modal para adicionar Imagem -->
+    <div id="image-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Vincular Imagem</h3>
+        <p>Pesquise o produto no Google ou site, copie o "Endereço da Imagem" (botão direito) e cole aqui. O sistema lembrará dela para sempre.</p>
+        <p class="search-helper" id="search-helper-links"></p>
+        <input type="text" id="img-url-input" placeholder="https://..." />
+        <div class="modal-actions">
+          <button id="btn-modal-cancel" class="btn-cancel">Cancelar</button>
+          <button id="btn-modal-save" class="btn-save">Salvar Imagem</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal QR Code -->
+    <div id="qr-modal" class="modal hidden">
+      <div class="modal-content" style="text-align: center;">
+        <h3>Transferir para o Celular</h3>
+        <p>Aponte a câmera do seu celular para o QR Code abaixo:</p>
+        <div id="qrcode-container" style="margin: 20px auto; background: white; padding: 15px; display: inline-block; border-radius: 8px;"></div>
+        <p id="qr-status" style="font-weight: bold; color: #1565c0;">Aguardando conexão...</p>
+        <div class="modal-actions" style="justify-content: center; margin-top: 15px;">
+          <button id="btn-qr-cancel" class="btn-cancel">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tela de Carregamento (Mobile) -->
+    <div id="mobile-loading" class="modal hidden" style="background: white;">
+      <div class="modal-content" style="text-align: center; box-shadow: none;">
+        <h2>⬇️ Recebendo Dados...</h2>
+        <p>Conectando ao computador de forma segura...</p>
+        <div class="progress-bar" style="width: 100%; max-width: 300px; margin: 20px auto;"><div class="progress-fill" style="width: 100%; background: #2196f3;"></div></div>
+        <p id="mobile-status-text" style="color: #2196f3; font-weight: bold;">Estabelecendo conexão Ponto-a-Ponto...</p>
+      </div>
+    </div>
+
+    <!-- Bibliotecas P2P e QRCode -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

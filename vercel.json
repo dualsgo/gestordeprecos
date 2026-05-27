@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/rihappy/(.*)",
+      "destination": "https://www.rihappy.com.br/$1"
+    }
+  ]
+}
