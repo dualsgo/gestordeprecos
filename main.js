@@ -788,6 +788,11 @@ function renderCurrentScanCard() {
                 <button class="btn-scan issue" onclick="skipItemNotFound()">❓ Não Encontrado</button>
                 <button class="btn-scan done" onclick="nextScanItem()">✅ Etiqueta Trocada</button>
             </div>
+            
+            <div class="scan-actions" style="margin-top: 15px; display: flex; gap: 10px; justify-content: space-between;">
+                <button class="btn-scan-action btn-skip" style="flex: 1; padding: 10px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 8px;" onclick="navScanPrev()" ${currentScanIndex === 0 ? 'disabled style="opacity:0.5"' : ''}>⬅️ Voltar</button>
+                <button class="btn-scan-action btn-skip" style="flex: 1; padding: 10px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 8px;" onclick="navScanNext()" ${currentScanIndex >= scanQueue.length - 1 ? 'disabled style="opacity:0.5"' : ''}>Pular ➡️</button>
+            </div>
         </div>
     `;
 
@@ -804,6 +809,9 @@ window.nextScanItem = function() {
         return;
     }
     const checkedVals = Array.from(checkboxes).map(cb => cb.value);
+    
+    // Remover duplicatas caso o usuário já tenha respondido antes e voltado
+    completedScans = completedScans.filter(s => s.codInt !== currentItem.codInt);
     
     // Registrar na lista de concluídos
     completedScans.push({
@@ -826,6 +834,9 @@ window.skipItemNotFound = function() {
     }
     const checkedVals = Array.from(checkboxes).map(cb => cb.value);
 
+    // Remover duplicatas caso o usuário já tenha respondido antes e voltado
+    completedScans = completedScans.filter(s => s.codInt !== currentItem.codInt);
+
     // Se não encontrou de primeira, vai para o final com a marcação de 2ª Busca
     // Apenas se ainda não for a 2ª busca, para evitar loop infinito
     if (!currentItem.scanLabel.includes('2ª Busca')) {
@@ -842,6 +853,20 @@ window.skipItemNotFound = function() {
 
     currentScanIndex++;
     renderCurrentScanCard();
+};
+
+window.navScanPrev = function() {
+    if (currentScanIndex > 0) {
+        currentScanIndex--;
+        renderCurrentScanCard();
+    }
+};
+
+window.navScanNext = function() {
+    if (currentScanIndex < scanQueue.length - 1) {
+        currentScanIndex++;
+        renderCurrentScanCard();
+    }
 };
 
 document.getElementById('btn-generate-report').addEventListener('click', () => {

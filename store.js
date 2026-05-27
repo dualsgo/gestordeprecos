@@ -66,14 +66,16 @@ export function getCategoryIcon(productName) {
 export async function scrapeImageFromRiHappy(ean) {
     if (!ean || ean === 'N/A' || ean === '-') return null;
     try {
-        // Busca usando a exata estrutura de URL pedida com o filtro "vendido-por"
-        const response = await fetch(`/api/rihappy/${ean}/rihappy?map=ft,vendido-por`);
+        const targetUrl = encodeURIComponent(`https://www.rihappy.com.br/${ean}/rihappy?map=ft,vendido-por`);
+        const response = await fetch(`https://api.allorigins.win/get?url=${targetUrl}`);
         if (!response.ok) return null;
         
-        const html = await response.text();
+        const data = await response.json();
+        const html = data.contents;
         
         // 1. Tentar pegar do og:image (ocorre quando a busca redireciona direto pro produto exato)
-        const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+        const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
+                        html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
         if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
             return ogMatch[1];
         }
@@ -83,7 +85,6 @@ export async function scrapeImageFromRiHappy(ean) {
         if (imgMatch && imgMatch[1]) {
             return imgMatch[1];
         }
-
     } catch (e) {
         console.error('Erro no auto-scrape da RiHappy:', e);
     }
