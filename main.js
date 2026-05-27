@@ -913,7 +913,7 @@ window.generatePrintReport = function(mode = 'full') {
         const buildSection = (secTitle, color, items, renderRow) => {
             if (!items || !items.length) return '';
             return `
-            <div style="margin-bottom:28px; page-break-inside:avoid;">
+            <div class="section-container" style="margin-bottom:28px; page-break-inside:avoid;">
                 <div style="background:${color}; color:white; padding:8px 12px; font-weight:bold; border-radius:6px 6px 0 0;">${secTitle} (${items.length} itens)</div>
                 <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
                     <thead><tr style="background:#f5f5f5; text-align:left;">
@@ -990,12 +990,12 @@ window.generatePrintReport = function(mode = 'full') {
             </table>`;
         };
 
-        contentHtml += `<div style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#10b981;">✅ Etiquetas Trocadas</h3>${buildTable(uniqResolvidos)}</div>`;
+        contentHtml += `<div class="section-container" style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#10b981;">✅ Etiquetas Trocadas</h3>${buildTable(uniqResolvidos)}</div>`;
         if (uniqNaoEncontrados.length > 0) {
-            contentHtml += `<div style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#f59e0b;">⚠️ Não Encontrados na Loja</h3>${buildTable(uniqNaoEncontrados)}</div>`;
+            contentHtml += `<div class="section-container" style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#f59e0b;">⚠️ Não Encontrados na Loja</h3>${buildTable(uniqNaoEncontrados)}</div>`;
         }
         if (pendentesQueue.length > 0) {
-            contentHtml += `<div><h3 style="margin-bottom:10px; color:#ef4444;">🔴 Não Verificados pelo Colaborador</h3>${buildTable(pendentesQueue)}</div>`;
+            contentHtml += `<div class="section-container" style="margin-bottom:28px;"><h3 style="margin-bottom:10px; color:#ef4444;">🔴 Não Verificados pelo Colaborador</h3>${buildTable(pendentesQueue)}</div>`;
         }
     }
 
@@ -1005,9 +1005,14 @@ window.generatePrintReport = function(mode = 'full') {
 <meta charset="UTF-8" />
 <title>${title}</title>
 <style>
-  body { font-family: sans-serif; color: #333; margin: 0; padding: 20px; }
+  html, body { height: 100%; margin: 0; padding: 0; }
+  body { font-family: sans-serif; color: #333; padding: 20px; }
   @page { size: A4 landscape; margin: 1cm; }
-  @media print { .no-print { display: none !important; } body { padding: 0; } }
+  @media print { 
+    .no-print { display: none !important; } 
+    body { padding: 0; margin: 0; } 
+    .section-container:last-of-type { margin-bottom: 0 !important; }
+  }
   .header { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items: center; }
   .header h1 { margin:0; font-size: 1.5rem; }
   .summary-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
