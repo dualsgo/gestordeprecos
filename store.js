@@ -36,6 +36,18 @@ export function saveProductImage(codInt, imageUrl, productName) {
     saveDatabase(db);
 }
 
+export function deleteProductImage(codInt) {
+    const db = getDatabase();
+    if (db[codInt]) {
+        delete db[codInt].image;
+        // Se ficar vazio, limpa a chave
+        if (Object.keys(db[codInt]).length <= 1) {
+            delete db[codInt];
+        }
+        saveDatabase(db);
+    }
+}
+
 // Inferência de categoria para mostrar ícones úteis quando não tem foto
 export function getCategoryIcon(productName) {
     const name = productName.toUpperCase();

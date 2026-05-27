@@ -1,5 +1,5 @@
 import { processFile } from './parser.js';
-import { getProductImage, saveProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, saveDatabase } from './store.js';
+import { getProductImage, saveProductImage, deleteProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, saveDatabase } from './store.js';
 import QRCode from 'qrcode';
 
 const dropZone = document.getElementById('drop-zone');
@@ -131,8 +131,20 @@ window.openImageModal = function(codInt, productName, ean) {
     const rihappyLink = `<a href="https://www.rihappy.com.br/${rihappyQuery}/rihappy?map=ft,vendido-por" target="_blank">🧸 Buscar na RiHappy</a>`;
 
     searchHelperLinks.innerHTML = `${googleLink} ${rihappyLink}`;
+    
+    const btnDelete = document.getElementById('btn-modal-delete');
+    if (getProductImage(codInt)) {
+        btnDelete.style.display = 'block';
+    } else {
+        btnDelete.style.display = 'none';
+    }
+    
     modal.classList.remove('hidden');
 };
+
+function closeImageModal() {
+    modal.classList.add('hidden');
+}
 
 // Lightbox: Visualizar imagem ampliada
 window.openLightbox = function(imgSrc, caption) {
@@ -164,18 +176,25 @@ btnModalCancel.addEventListener('click', () => {
 
 btnModalSave.addEventListener('click', () => {
     const url = imgUrlInput.value.trim();
-    if (url) {
+    if (url && currentAddingImageCode) {
         saveProductImage(currentAddingImageCode, url, currentAddingImageName);
-        modal.classList.add('hidden');
-        // Re-render
-        if (currentGlobalData) {
-            renderResults(currentGlobalData);
-            if (btnModeScan.classList.contains('active')) {
-                renderCurrentScanCard();
-            }
-        }
+        if (currentGlobalData) renderResults(currentGlobalData);
+        if (btnModeScan.classList.contains('active')) renderCurrentScanCard();
     }
+    closeImageModal();
 });
+
+const btnModalDelete = document.getElementById('btn-modal-delete');
+if (btnModalDelete) {
+    btnModalDelete.addEventListener('click', () => {
+        if (currentAddingImageCode) {
+            deleteProductImage(currentAddingImageCode);
+            if (currentGlobalData) renderResults(currentGlobalData);
+            if (btnModeScan.classList.contains('active')) renderCurrentScanCard();
+        }
+        closeImageModal();
+    });
+}
 
 
 function formatMoney(value) {
@@ -689,6 +708,7 @@ function renderCurrentScanCard() {
             <div class="scan-card-body">
                 <div class="scan-image-wrap" onclick="openImageModal('${item.codInt}', '${item.mercadoria.replace(/'/g, "\\'")}', '${item.ean}')">
                     ${imgDisplay}
+                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">📝 Clique na foto para revisar/alterar</div>
                 </div>
                 <div class="scan-title">${item.mercadoria}</div>
                 <div class="scan-meta">SAP: ${item.codInt} | EAN: ${item.ean && item.ean !== 'N/A' ? item.ean : '-'}</div>
