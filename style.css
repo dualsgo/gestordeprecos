@@ -845,7 +845,7 @@ tbody tr:hover {
   /* No celular pequeno, vamos esconder colunas menos vitais da tabela para caber melhor
      (O usuário ainda pode usar o Modo Varredura para focar totalmente) */
   th:nth-child(2), td:nth-child(2), /* SAP */
-  th:nth-child(3), td:nth-child(3), /* EAN */
+  th:nth-child(3), td:nth-child(3)  /* EAN */
   {
     display: none;
   }
