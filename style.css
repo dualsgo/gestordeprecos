@@ -55,7 +55,7 @@ h1, h2, h3, h4 {
 }
 
 .header-content {
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 0 20px;
   display: flex;
@@ -102,7 +102,7 @@ h1, h2, h3, h4 {
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 100%;
   margin: 2rem auto;
   padding: 0 20px;
 }
