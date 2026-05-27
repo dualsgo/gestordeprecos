@@ -338,6 +338,13 @@ if (btnStartMobileScan) {
     btnStartMobileScan.addEventListener('click', () => {
         mobileQrReaderView.style.display = 'block';
         btnStartMobileScan.style.display = 'none';
+        
+        // Esconder coisas para maximizar espaço de tela
+        document.getElementById('qr-instructions').style.display = 'none';
+        document.getElementById('qr-bottom-actions').style.display = 'none';
+        document.querySelector('.app-header').style.display = 'none';
+        document.getElementById('btn-cancel-mobile-scan').style.display = 'block';
+
         mobileQrStatus.textContent = 'Aponte para o QR Code da tela do computador...';
         mobileQrStatus.style.color = '#6a11cb';
 
@@ -349,6 +356,8 @@ if (btnStartMobileScan) {
                 // Parar a câmera imediatamente
                 await mobileQrScanner.stop();
                 mobileQrReaderView.style.display = 'none';
+                document.getElementById('btn-cancel-mobile-scan').style.display = 'none';
+                document.querySelector('.app-header').style.display = 'flex';
                 
                 // Tentar extrair session_id da URL decodificada
                 try {
@@ -361,21 +370,52 @@ if (btnStartMobileScan) {
                     } else {
                         mobileQrStatus.textContent = '⚠️ QR Code inválido. Escaneie o código gerado pelo sistema.';
                         mobileQrStatus.style.color = '#ef4444';
+                        document.getElementById('qr-instructions').style.display = 'block';
+                        document.getElementById('qr-bottom-actions').style.display = 'block';
                         btnStartMobileScan.style.display = 'block';
                     }
                 } catch (e) {
                     mobileQrStatus.textContent = '⚠️ QR Code não reconhecido.';
                     mobileQrStatus.style.color = '#ef4444';
+                    document.getElementById('qr-instructions').style.display = 'block';
+                    document.getElementById('qr-bottom-actions').style.display = 'block';
                     btnStartMobileScan.style.display = 'block';
                 }
             },
-            () => {} // erros de frame: ignorar
+            (errorMessage) => {
+                // IGNORAR erros de não leitura
+            }
         ).catch(err => {
-            mobileQrStatus.textContent = '⚠️ Permissão de câmera negada.';
+            console.error("Erro ao iniciar câmera: ", err);
+            mobileQrStatus.textContent = "Erro ao acessar a câmera. Verifique as permissões.";
             mobileQrStatus.style.color = '#ef4444';
+            document.getElementById('qr-instructions').style.display = 'block';
+            document.getElementById('qr-bottom-actions').style.display = 'block';
+            document.querySelector('.app-header').style.display = 'flex';
+            document.getElementById('btn-cancel-mobile-scan').style.display = 'none';
             btnStartMobileScan.style.display = 'block';
         });
     });
+
+    const btnCancelMobileScan = document.getElementById('btn-cancel-mobile-scan');
+    if (btnCancelMobileScan) {
+        btnCancelMobileScan.addEventListener('click', async () => {
+            if (mobileQrScanner) {
+                try {
+                    await mobileQrScanner.stop();
+                } catch(e) { console.error(e); }
+            }
+            mobileQrReaderView.style.display = 'none';
+            btnCancelMobileScan.style.display = 'none';
+            btnStartMobileScan.style.display = 'block';
+            
+            document.getElementById('qr-instructions').style.display = 'block';
+            document.getElementById('qr-bottom-actions').style.display = 'block';
+            document.querySelector('.app-header').style.display = 'flex';
+            
+            mobileQrStatus.textContent = '';
+        });
+    }
 }
 
 // Upload direto de arquivo no celular

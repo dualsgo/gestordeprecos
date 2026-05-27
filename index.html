@@ -52,19 +52,25 @@
       <!-- TELA MOBILE: Leitor de QR Code integrado (visivel apenas no mobile) -->
       <div id="mobile-qr-reader" class="mobile-qr-zone hidden no-print">
         <div class="mobile-qr-content">
-          <div class="mobile-qr-icon">📱</div>
-          <h2>Sincronizar com o Computador</h2>
-          <p>Aponte a câmera para o <strong>QR Code</strong> exibido na tela do computador e receba a lista de troca automaticamente.</p>
+          <div id="qr-instructions">
+            <div class="mobile-qr-icon">📱</div>
+            <h2>Sincronizar com o Computador</h2>
+            <p>Aponte a câmera para o <strong>QR Code</strong> exibido na tela do computador e receba a lista de troca automaticamente.</p>
+          </div>
           <button id="btn-start-mobile-scan" class="btn-mobile-primary">
             📷 Escanear QR Code do PC
           </button>
-          <div id="mobile-qr-reader-view" style="display:none; width:100%; margin-top:20px; border-radius: 16px; overflow:hidden;"></div>
+          <div id="mobile-qr-reader-view" style="display:none; width:100%; margin-top:10px; border-radius: 16px; overflow:hidden;"></div>
           <p id="mobile-qr-status" class="mobile-qr-status"></p>
-          <div class="mobile-qr-divider"><span>ou</span></div>
-          <label for="file-input-mobile" class="btn-attach-secondary">
-            📂 Carregar arquivo do celular
-          </label>
-          <input type="file" id="file-input-mobile" accept=".xls,.html" />
+          <button id="btn-cancel-mobile-scan" class="btn-cancel" style="display:none; width:100%; margin-top:10px;">Cancelar</button>
+          
+          <div id="qr-bottom-actions">
+            <div class="mobile-qr-divider"><span>ou</span></div>
+            <label for="file-input-mobile" class="btn-attach-secondary">
+              📂 Carregar arquivo do celular
+            </label>
+            <input type="file" id="file-input-mobile" accept=".xls,.html" />
+          </div>
         </div>
       </div>
 
