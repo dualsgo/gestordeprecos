@@ -66,18 +66,24 @@ export function getCategoryIcon(productName) {
 export async function scrapeImageFromRiHappy(ean) {
     if (!ean || ean === 'N/A' || ean === '-') return null;
     try {
-        // Usa a API direta do VTEX para garantir que a foto venha, sem precisar ler HTML
-        const response = await fetch(`/api/rihappy/api/catalog_system/pub/products/search?ft=${ean}`);
+        // Busca usando a exata estrutura de URL pedida com o filtro "vendido-por"
+        const response = await fetch(`/api/rihappy/${ean}/rihappy?map=ft,vendido-por`);
         if (!response.ok) return null;
-        const data = await response.json();
         
-        // Se a API retornou produtos, pega a URL da primeira imagem do primeiro item
-        if (data && data.length > 0 && data[0].items && data[0].items.length > 0) {
-            const images = data[0].items[0].images;
-            if (images && images.length > 0) {
-                return images[0].imageUrl;
-            }
+        const html = await response.text();
+        
+        // 1. Tentar pegar do og:image (ocorre quando a busca redireciona direto pro produto exato)
+        const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+        if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
+            return ogMatch[1];
         }
+
+        // 2. Tentar pegar direto do cache JSON injetado pelo VTEX IO na página de busca
+        const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
+        if (imgMatch && imgMatch[1]) {
+            return imgMatch[1];
+        }
+
     } catch (e) {
         console.error('Erro no auto-scrape da RiHappy:', e);
     }

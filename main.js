@@ -893,8 +893,7 @@ async function runAutoScraperInBackground() {
 
         if(scraperText) scraperText.textContent = `Buscando foto: ${item.mercadoria.substring(0, 15)}...`;
 
-        const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean :
-                        ((item.fornecedorCod && item.fornecedorCod !== 'N/A' && item.fornecedorCod !== '-') ? item.fornecedorCod : item.codInt);
+        const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : item.codInt;
 
         const imageUrl = await scrapeImageFromRiHappy(queryId);
         if (imageUrl) {
