@@ -650,6 +650,7 @@ function renderCurrentScanCard() {
     if (currentScanIndex >= scanQueue.length) {
         document.getElementById('scan-card-container').innerHTML = '';
         document.getElementById('scan-finished-state').classList.remove('hidden');
+        if (btnStartMobileScan) btnStartMobileScan.style.display = 'none';
         return;
     }
 
@@ -659,7 +660,7 @@ function renderCurrentScanCard() {
     // Atualiza Progresso
     const progressPercent = ((currentScanIndex) / scanQueue.length) * 100;
     document.getElementById('scan-progress-fill').style.width = `${progressPercent}%`;
-    document.getElementById('scan-current').textContent = currentScanIndex;
+    document.getElementById('scan-current').textContent = currentScanIndex + 1;
     document.getElementById('scan-total').textContent = scanQueue.length;
 
     // Imagem
@@ -734,12 +735,16 @@ window.nextScanItem = function() {
     
     // Coletar as opções marcadas
     const checkboxes = document.querySelectorAll('.chk-loc:checked');
+    if (checkboxes.length === 0) {
+        alert("Por favor, marque pelo menos um local onde você verificou ou trocou a etiqueta.");
+        return;
+    }
     const checkedVals = Array.from(checkboxes).map(cb => cb.value);
     
     // Registrar na lista de concluídos
     completedScans.push({
         ...currentItem,
-        checkedLocations: checkedVals.length > 0 ? checkedVals : ['Nenhum local marcado'],
+        checkedLocations: checkedVals,
         status: 'Resolvido'
     });
 
@@ -749,6 +754,14 @@ window.nextScanItem = function() {
 
 window.skipItemNotFound = function() {
     const currentItem = scanQueue[currentScanIndex];
+    
+    const checkboxes = document.querySelectorAll('.chk-loc:checked');
+    if (checkboxes.length === 0) {
+        alert("Por favor, marque em quais locais você procurou antes de declarar como Não Encontrado.");
+        return;
+    }
+    const checkedVals = Array.from(checkboxes).map(cb => cb.value);
+
     // Se não encontrou de primeira, vai para o final com a marcação de 2ª Busca
     // Apenas se ainda não for a 2ª busca, para evitar loop infinito
     if (!currentItem.scanLabel.includes('2ª Busca')) {
@@ -758,7 +771,7 @@ window.skipItemNotFound = function() {
         // Desistiu na 2ª busca
         completedScans.push({
             ...currentItem,
-            checkedLocations: ['NÃO ENCONTRADO NA LOJA'],
+            checkedLocations: checkedVals,
             status: 'Pendente'
         });
     }
@@ -769,8 +782,10 @@ window.skipItemNotFound = function() {
 
 document.getElementById('btn-generate-report').addEventListener('click', () => {
     const collabName = document.getElementById('collaborator-name').value.trim();
-    if (!collabName) {
-        alert("Por favor, digite o nome do colaborador!");
+    const collabId = document.getElementById('collaborator-id').value.trim();
+    
+    if (!collabName || !collabId) {
+        alert("Por favor, preencha seu Nome e Matrícula!");
         return;
     }
 
@@ -938,8 +953,12 @@ window.generatePrintReport = function(mode = 'full') {
         contentHtml += buildSection('🔵 REBAIXAS', '#3b82f6', currentGlobalData.rebaixas, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
 
     } else if (mode === 'scan') {
-        title = 'Relatório de Varredura - Prevenção a Erros de Preço';
-        const collabName = document.getElementById('collaborator-name')?.value || 'Não informado';
+        const cName = document.getElementById('collaborator-name')?.value || 'Não informado';
+        const cId = document.getElementById('collaborator-id')?.value || '-';
+        const collabName = `${cName} (Matrícula: ${cId})`;
+        
+        const dayStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        title = `Alteração de Preço Dia ${dayStr} - ${cName}`;
         
         // Identificar produtos únicos que foram resolvidos
         const resolvidosMap = new Map();
@@ -1020,17 +1039,34 @@ window.generatePrintReport = function(mode = 'full') {
   .summary-box .count { font-size: 1.5rem; font-weight: bold; }
   .summary-box .label { font-size: 0.75rem; text-transform: uppercase; color: #666; margin-top: 5px; }
   .danger .count { color: #ef4444; } .success .count { color: #10b981; } .info .count { color: #3b82f6; } .warning .count { color: #f59e0b; }
-  .print-btn { padding: 10px 20px; background: #2575fc; color: white; border: none; border-radius: 5px; cursor: pointer; display:block; margin:0 auto 20px auto; font-size: 1rem; font-weight: bold; }
+  .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+  .print-btn { padding: 10px 20px; background: #2575fc; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+  .wpp-btn { padding: 10px 20px; background: #25D366; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
-<button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+<div class="btn-group no-print">
+  <button class="print-btn" onclick="window.print()">🖨️ Salvar PDF / Imprimir</button>
+  <button class="wpp-btn" onclick="shareWpp()">💬 Compartilhar Resumo no WhatsApp</button>
+</div>
 <div class="header">
   <div><h1>📋 ${title}</h1></div>
   <div style="text-align:right;"><strong>${dateStr}</strong><br>Gerado às ${timeStr}</div>
 </div>
 ${summaryHtml}
 ${contentHtml}
+
+<script>
+function shareWpp() {
+    const text = "📋 *${title}*\n\nGerado às ${timeStr}\n\n*Resumo da Varredura:*\n" + 
+                 Array.from(document.querySelectorAll('.summary-box')).map(box => {
+                     return box.querySelector('.label').innerText + ": " + box.querySelector('.count').innerText;
+                 }).join('\\n');
+                 
+    const url = "https://api.whatsapp.com/send?text=" + encodeURIComponent(text);
+    window.open(url, '_blank');
+}
+</script>
 </body>
 </html>`;
 
