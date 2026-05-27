@@ -1,5 +1,6 @@
 import { processFile } from './parser.js';
 import { getProductImage, saveProductImage, getCategoryIcon, scrapeImageFromRiHappy } from './store.js';
+import QRCode from 'qrcode';
 
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');

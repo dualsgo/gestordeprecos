@@ -13,6 +13,7 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
-    "@vercel/kv": "^3.0.0"
+    "@vercel/kv": "^3.0.0",
+    "qrcode": "^1.5.4"
   }
 }
