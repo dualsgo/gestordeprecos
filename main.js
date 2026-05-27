@@ -37,12 +37,20 @@ const qrStatus = document.getElementById('qr-status');
 const mobileLoading = document.getElementById('mobile-loading');
 const mobileStatusText = document.getElementById('mobile-status-text');
 
-// Scanner Mobile
+// Scanner de Produto Mobile (câmera no modo varredura)
 const btnOpenScanner = document.getElementById('btn-open-scanner');
 const scannerModal = document.getElementById('scanner-modal');
 const btnScannerCancel = document.getElementById('btn-scanner-cancel');
 const scannerStatus = document.getElementById('scanner-status');
 let html5QrcodeScanner = null;
+
+// Tela Mobile (QR Code nativo)
+const mobileQrReader = document.getElementById('mobile-qr-reader');
+const btnStartMobileScan = document.getElementById('btn-start-mobile-scan');
+const mobileQrStatus = document.getElementById('mobile-qr-status');
+const mobileQrReaderView = document.getElementById('mobile-qr-reader-view');
+const fileInputMobile = document.getElementById('file-input-mobile');
+let mobileQrScanner = null;
 
 let currentGlobalData = null;
 let currentAddingImageCode = null;
@@ -125,6 +133,30 @@ window.openImageModal = function(codInt, productName, ean) {
     searchHelperLinks.innerHTML = `${googleLink} ${rihappyLink}`;
     modal.classList.remove('hidden');
 };
+
+// Lightbox: Visualizar imagem ampliada
+window.openLightbox = function(imgSrc, caption) {
+    const lb = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lightbox-img');
+    const lbCaption = document.getElementById('lightbox-caption');
+    if (!lb) return;
+    lbImg.src = imgSrc;
+    lbCaption.textContent = caption || '';
+    lb.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeLightbox = function() {
+    const lb = document.getElementById('lightbox');
+    if (!lb) return;
+    lb.classList.add('hidden');
+    document.body.style.overflow = '';
+};
+
+// Fechar lightbox com ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') window.closeLightbox();
+});
 
 btnModalCancel.addEventListener('click', () => {
     modal.classList.add('hidden');
@@ -237,14 +269,19 @@ btnQrCancel.addEventListener('click', () => {
     qrModal.classList.add('hidden');
 });
 
-// Inicialização: Se a URL tiver ?session_id=, estamos no celular (Recepção)
+// Inicialização: Detecção de Mobile/Desktop e ?session_id=
 window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session_id');
-    
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                     || window.innerWidth <= 768;
+
     if (sessionId) {
+        // Ativar Modo Conferência
+        document.body.classList.add('session-mode');
         mobileLoading.classList.remove('hidden');
         dropZone.style.display = 'none';
+        if(mobileQrReader) mobileQrReader.classList.add('hidden');
         mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Buscando sessão na nuvem...</div>';
         
         try {
@@ -256,9 +293,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
             
             mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Montando interface...</div>';
-            
-            // A API Vercel KV retorna diretamente o JSON parseado se ele foi salvo corretamente, 
-            // ou string se escapou duplo. Garantindo:
             currentGlobalData = typeof data === 'string' ? JSON.parse(data) : data;
             
             startTime = new Date();
@@ -271,19 +305,75 @@ window.addEventListener('DOMContentLoaded', async () => {
             buildScanQueue(currentGlobalData);
             resultsContainer.classList.remove('hidden');
             mobileLoading.classList.add('hidden');
-            
-            // Força abrir o modo varredura
             btnModeScan.click();
-            
             runAutoScraperInBackground();
             
         } catch (error) {
             console.error(error);
             mobileStatusText.textContent = `Erro: ${error.message}`;
-            mobileStatusText.style.color = '#ffcdd2'; // light red
+            mobileStatusText.style.color = '#ffcdd2';
         }
+    } else if (isMobile) {
+        // Mobile sem session_id: exibe tela de leitura de QR Code
+        dropZone.style.display = 'none';
+        mobileQrReader.classList.remove('hidden');
     }
 });
+
+// Botão de iniciar leitor de QR Code para session_id
+if (btnStartMobileScan) {
+    btnStartMobileScan.addEventListener('click', () => {
+        mobileQrReaderView.style.display = 'block';
+        btnStartMobileScan.style.display = 'none';
+        mobileQrStatus.textContent = 'Aponte para o QR Code da tela do computador...';
+        mobileQrStatus.style.color = '#6a11cb';
+
+        mobileQrScanner = new Html5Qrcode('mobile-qr-reader-view');
+        mobileQrScanner.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            async (decodedText) => {
+                // Parar a câmera imediatamente
+                await mobileQrScanner.stop();
+                mobileQrReaderView.style.display = 'none';
+                
+                // Tentar extrair session_id da URL decodificada
+                try {
+                    const url = new URL(decodedText);
+                    const sid = url.searchParams.get('session_id');
+                    if (sid) {
+                        mobileQrStatus.innerHTML = '<div class="loader-inline"><div class="spinner"></div> Carregando lista...</div>';
+                        mobileQrStatus.style.color = '#1565c0';
+                        window.location.href = decodedText;
+                    } else {
+                        mobileQrStatus.textContent = '⚠️ QR Code inválido. Escaneie o código gerado pelo sistema.';
+                        mobileQrStatus.style.color = '#ef4444';
+                        btnStartMobileScan.style.display = 'block';
+                    }
+                } catch (e) {
+                    mobileQrStatus.textContent = '⚠️ QR Code não reconhecido.';
+                    mobileQrStatus.style.color = '#ef4444';
+                    btnStartMobileScan.style.display = 'block';
+                }
+            },
+            () => {} // erros de frame: ignorar
+        ).catch(err => {
+            mobileQrStatus.textContent = '⚠️ Permissão de câmera negada.';
+            mobileQrStatus.style.color = '#ef4444';
+            btnStartMobileScan.style.display = 'block';
+        });
+    });
+}
+
+// Upload direto de arquivo no celular
+if (fileInputMobile) {
+    fileInputMobile.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            mobileQrReader.classList.add('hidden');
+            handleFile(e.target.files[0]);
+        }
+    });
+}
 
 function groupItemsByFornecedor(items) {
     const grouped = {};
@@ -298,11 +388,21 @@ function groupItemsByFornecedor(items) {
 
 function getImageHtml(item) {
     const savedImg = getProductImage(item.codInt);
+    const escapedName = item.mercadoria.replace(/'/g, "\\'");
     if (savedImg) {
-        return `<img src="${savedImg}" class="product-thumb" onclick="openImageModal('${item.codInt}', '${item.mercadoria.replace(/'/g, "\\'")}', '${item.ean}')" title="Alterar imagem" />`;
+        // Foto: clicar abre lightbox; ícone de lápis abre modal de edição
+        return `
+          <div class="img-wrap">
+            <img src="${savedImg}" class="product-thumb"
+              onclick="openLightbox('${savedImg}', '${escapedName}')"
+              title="Ver imagem" />
+            <button class="edit-img-btn"
+              onclick="event.stopPropagation(); openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')"
+              title="Trocar imagem">\u270E</button>
+          </div>`;
     } else {
         const icon = getCategoryIcon(item.mercadoria);
-        return `<div class="no-image" onclick="openImageModal('${item.codInt}', '${item.mercadoria.replace(/'/g, "\\'")}', '${item.ean}')" title="Adicionar Imagem">${icon}</div>`;
+        return `<div class="no-image" onclick="openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')" title="Adicionar Imagem">${icon}</div>`;
     }
 }
 

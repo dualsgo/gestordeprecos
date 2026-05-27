@@ -32,19 +32,39 @@
     </header>
 
     <main class="container">
+      <!-- TELA DESKTOP: Upload de Arquivo -->
       <div id="drop-zone" class="drop-zone no-print">
         <div class="drop-content">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-          <h2>Passo 1: Insira o Relatório do Sistema</h2>
+          <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+          <h2>Insira o Relatório do Sistema</h2>
           <div class="instructions-box">
             <p><strong>1.</strong> Salve o <strong>Relatório Diário</strong> (ou Relatório Circular) no seu computador.</p>
-            <p><strong>2.</strong> Clique no botão azul abaixo ou arraste o arquivo até este quadro branco.</p>
+            <p><strong>2.</strong> Clique no botão abaixo ou arraste o arquivo até aqui.</p>
           </div>
           <label for="file-input" class="btn-attach">
-            Procurar Arquivo no Computador
+            📂 Procurar Arquivo
           </label>
           <input type="file" id="file-input" accept=".xls,.html" />
           <span id="drop-text" class="status-text">Aguardando você inserir o arquivo...</span>
+        </div>
+      </div>
+
+      <!-- TELA MOBILE: Leitor de QR Code integrado (visivel apenas no mobile) -->
+      <div id="mobile-qr-reader" class="mobile-qr-zone hidden no-print">
+        <div class="mobile-qr-content">
+          <div class="mobile-qr-icon">📱</div>
+          <h2>Sincronizar com o Computador</h2>
+          <p>Aponte a câmera para o <strong>QR Code</strong> exibido na tela do computador e receba a lista de troca automaticamente.</p>
+          <button id="btn-start-mobile-scan" class="btn-mobile-primary">
+            📷 Escanear QR Code do PC
+          </button>
+          <div id="mobile-qr-reader-view" style="display:none; width:100%; margin-top:20px; border-radius: 16px; overflow:hidden;"></div>
+          <p id="mobile-qr-status" class="mobile-qr-status"></p>
+          <div class="mobile-qr-divider"><span>ou</span></div>
+          <label for="file-input-mobile" class="btn-attach-secondary">
+            📂 Carregar arquivo do celular
+          </label>
+          <input type="file" id="file-input-mobile" accept=".xls,.html" />
         </div>
       </div>
 
@@ -262,6 +282,13 @@
     <div id="scraper-indicator">
       <div class="spinner" style="width: 20px; height: 20px; border-width: 2px; border-top-color: var(--primary-color);"></div>
       <span id="scraper-text">Buscando imagens na web...</span>
+    </div>
+
+    <!-- Lightbox: Visualizar Imagem Grande -->
+    <div id="lightbox" class="lightbox hidden" onclick="closeLightbox()">
+      <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+      <img id="lightbox-img" src="" alt="Produto" />
+      <p id="lightbox-caption"></p>
     </div>
 
     <!-- Bibliotecas Scanner -->
