@@ -1,5 +1,5 @@
 import { processFile } from './parser.js';
-import { getProductImage, saveProductImage, getCategoryIcon, scrapeImageFromRiHappy } from './store.js';
+import { getProductImage, saveProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, saveDatabase } from './store.js';
 import QRCode from 'qrcode';
 
 const dropZone = document.getElementById('drop-zone');
@@ -234,10 +234,13 @@ btnShareMobile.addEventListener('click', async () => {
     qrStatus.style.color = '#1565c0';
 
     try {
+        // Empacotar dados da planilha + banco de imagens do PC juntos
+        const imageDb = getDatabase();
+        const payload = { productData: currentGlobalData, imageDb };
         const response = await fetch('/api/session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(currentGlobalData)
+            body: JSON.stringify(payload)
         });
         
         const data = await response.json();
@@ -293,7 +296,17 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
             
             mobileStatusText.innerHTML = '<div class="loader-inline"><div class="spinner light"></div> Montando interface...</div>';
-            currentGlobalData = typeof data === 'string' ? JSON.parse(data) : data;
+            
+            // Desempacotar payload: pode vir no formato novo (com imagens) ou antigo (só dados)
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            if (payload.productData && payload.imageDb) {
+                // Formato novo: restaura banco de imagens no localStorage do celular
+                saveDatabase(payload.imageDb);
+                currentGlobalData = payload.productData;
+            } else {
+                // Formato legado (sessões antigas sem imagens)
+                currentGlobalData = payload;
+            }
             
             startTime = new Date();
             statStart.textContent = startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
