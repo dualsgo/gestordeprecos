@@ -339,6 +339,16 @@ function renderResults(data) {
         <td style="color: #d97706; font-weight: bold; font-size: 1.15rem; text-align: right; background: #fffbeb; border-radius: 6px;">+ ${formatMoney(Math.abs(diff))}<br><small style="font-size:0.85rem">(+${pct.toFixed(1)}%)</small></td>
     `;
     }, 'var(--warning-color)');
+
+    populateTableGrouped('table-sem-giro', data.semGiro || [], (item) => {
+        const hasImg = getProductImage(item.codInt) ? '✅ Com Imagem' : '❌ Sem Imagem';
+        const statusColor = getProductImage(item.codInt) ? 'color: var(--success-color);' : 'color: var(--danger-color);';
+        return `
+        <td class="price" style="font-size: 1.1rem; color: #64748b;">${formatMoney(item.precoAnterior)}</td>
+        <td class="price" style="font-size: 1.1rem; color: #64748b;">${formatMoney(item.promocao)}</td>
+        <td style="${statusColor} font-weight: bold; font-size: 1.1rem; text-align: center;">${hasImg}</td>
+    `;
+    }, '#4b5563');
 }
 
 window.cancelScraper = false;
@@ -349,6 +359,7 @@ async function runAutoScraperInBackground(data) {
     if (data.entradasOferta) allItems = allItems.concat(data.entradasOferta);
     if (data.rebaixas) allItems = allItems.concat(data.rebaixas);
     if (data.terminosOferta) allItems = allItems.concat(data.terminosOferta);
+    if (data.semGiro) allItems = allItems.concat(data.semGiro);
 
     const itemsToScrape = allItems.filter(item => {
         const hasId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') || 

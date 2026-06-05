@@ -6,34 +6,72 @@ export async function processFile(file) {
     // Detect file type
     const headers = Array.from(doc.querySelectorAll('th')).map(th => th.textContent.trim());
     const isRelatorioCircular = headers.includes('Filial') && headers.includes('Evento');
+    const isSemGiro = headers.includes('Data Última Venda') || text.includes('sem Giro') || text.includes('sem fornecedor');
 
     const results = {
         aumentos: [],
         entradasOferta: [],
         terminosOferta: [],
-        rebaixas: []
+        rebaixas: [],
+        semGiro: []
     };
 
     function parseNumber(str, isAmerican) {
         if (!str) return 0;
         if (isAmerican) {
-            // "59.99" -> 59.99
             return parseFloat(str);
         } else {
-            // "119,95" -> 119.95, "1.000,50" -> 1000.50
             return parseFloat(str.replace(/\./g, '').replace(',', '.'));
         }
     }
 
     function parseEstoque(str) {
         if (!str) return '0';
-        // The system exports 24 as 24.000 or 15,000 (3 decimal places).
-        // By replacing , with . and parsing as float, we get 24 and 15 natively.
         const num = parseFloat(str.replace(',', '.'));
         return isNaN(num) ? str : num.toString().replace('.', ',');
     }
 
-    if (isRelatorioCircular) {
+    function parseEstoqueSemGiro(str) {
+        if (!str) return '0';
+        let val = str.replace(/\./g, '').replace(/,/g, '').trim();
+        if (val.endsWith('000') && val !== '000') {
+            val = val.slice(0, -3);
+        } else if (val === '000') {
+            val = '0';
+        }
+        return val || '0';
+    }
+
+    if (isSemGiro) {
+        const rows = doc.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 10) return;
+
+            const codInt = cells[0].textContent.trim();
+            if (codInt.toLowerCase().includes('interno') || codInt === '') return;
+
+            const ean = cells[1].textContent.trim();
+            const mercadoria = cells[2].textContent.trim();
+            const fornecedorCod = cells[3] ? cells[3].textContent.trim() : '';
+            const estoque = parseEstoqueSemGiro(cells[5].textContent.trim());
+            const precoVenda = parseNumber(cells[8].textContent.trim(), false);
+            const promocao = parseNumber(cells[9].textContent.trim(), false);
+
+            const item = { 
+                codInt, 
+                mercadoria, 
+                ean: ean || 'N/A', 
+                fornecedor: 'SEM_FORNECEDOR', 
+                fornecedorCod, 
+                precoAnterior: precoVenda, 
+                novoPreco: precoVenda, 
+                promocao, 
+                estoque 
+            };
+            results.semGiro.push(item);
+        });
+    } else if (isRelatorioCircular) {
         // RelatorioCircularAlteracaoPreco.xls
         const rows = doc.querySelectorAll('tbody tr');
         rows.forEach(row => {
@@ -48,11 +86,10 @@ export async function processFile(file) {
             const precoAnterior = parseNumber(cells[7].textContent.trim(), true);
             const novoPreco = parseNumber(cells[8].textContent.trim(), true);
             const promocao = parseNumber(cells[9].textContent.trim(), true);
-            const estoque = parseEstoque(cells[12].textContent.trim()); // Fix: "24.000" becomes "24"
+            const estoque = parseEstoque(cells[12].textContent.trim()); 
             
-            // O relatório circular não tem Fornecedor, então não agrupamos.
             const fornecedor = `SEM_FORNECEDOR`;
-            const fornecedorCodRef = cells[4].textContent.trim(); // Mantém como Referência, não como Fornecedor!
+            const fornecedorCodRef = cells[4].textContent.trim(); 
             
             const item = { codInt, mercadoria, ean, fornecedor, fornecedorCod: fornecedorCodRef, precoAnterior, novoPreco, promocao, estoque };
 
@@ -88,7 +125,7 @@ export async function processFile(file) {
 
             if (cells.length >= 7) {
                 const headerText = cells[0].textContent.trim();
-                if (headerText.includes('Cod. Interno') || headerText === '') return; // Skip subheaders
+                if (headerText.includes('Cod. Interno') || headerText === '') return;
 
                 const codInt = cells[0].textContent.trim();
                 const mercadoria = cells[1].textContent.trim();
