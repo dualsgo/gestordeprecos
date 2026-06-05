@@ -49,30 +49,6 @@
         </div>
       </div>
 
-      <!-- TELA MOBILE: Leitor de QR Code integrado (visivel apenas no mobile) -->
-      <div id="mobile-qr-reader" class="mobile-qr-zone hidden no-print">
-        <div class="mobile-qr-content">
-          <div id="qr-instructions">
-            <div class="mobile-qr-icon">📱</div>
-            <h2>Sincronizar com o Computador</h2>
-            <p>Aponte a câmera para o <strong>QR Code</strong> exibido na tela do computador e receba a lista de troca automaticamente.</p>
-          </div>
-          <button id="btn-start-mobile-scan" class="btn-mobile-primary">
-            📷 Escanear QR Code do PC
-          </button>
-          <div id="mobile-qr-reader-view" style="display:none; width:100%; margin-top:10px; border-radius: 16px; overflow:hidden;"></div>
-          <p id="mobile-qr-status" class="mobile-qr-status"></p>
-          <button id="btn-cancel-mobile-scan" class="btn-cancel" style="display:none; width:100%; margin-top:10px;">Cancelar</button>
-          
-          <div id="qr-bottom-actions">
-            <div class="mobile-qr-divider"><span>ou</span></div>
-            <label for="file-input-mobile" class="btn-attach-secondary">
-              📂 Carregar arquivo do celular
-            </label>
-            <input type="file" id="file-input-mobile" accept=".xls,.html" />
-          </div>
-        </div>
-      </div>
 
       <div id="results" class="results-container hidden">
         <div class="actions-bar no-print">
@@ -81,18 +57,10 @@
             <p>Você pode imprimir a lista completa (Aumentos, Ofertas e Rebaixas) na tabela. <strong>No Modo Varredura, mostraremos apenas os Aumentos e Términos de Oferta, focando 100% em evitar prejuízos de erro de preço.</strong></p>
           </div>
           <div class="actions-wrapper">
-            <div class="left-actions">
-              <button id="btn-mode-table" class="btn-mode active">
-                📊 Modo Tabela (Para Imprimir)
-              </button>
-              <button id="btn-mode-scan" class="btn-mode">
-                🎯 Modo Varredura (Para Celular)
-              </button>
+            <div class="left-actions" style="display: none;">
+              <!-- Removed mode switch buttons, we only use Table/Print mode now -->
             </div>
             <div class="right-actions">
-              <button id="btn-share-mobile" class="btn-print">
-                📱 Enviar para Celular
-              </button>
               <button id="btn-print" class="btn-print">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                 Imprimir Relatório
@@ -203,34 +171,6 @@
           </section>
         </div>
 
-        <!-- MODO VARREDURA -->
-        <div id="view-scan" class="hidden">
-          <div class="scan-progress">
-            <div class="progress-bar"><div id="scan-progress-fill" class="progress-fill"></div></div>
-            <p><span id="scan-current">0</span> de <span id="scan-total">0</span> itens concluídos</p>
-          </div>
-          
-          <button id="btn-open-scanner" class="btn-new" style="margin: 0 auto 20px auto; display: block; background: #673ab7; color: white; border: none; font-size: 1.1rem; width: 100%; max-width: 400px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(103, 58, 183, 0.3);">📷 Escanear Código de Barras (EAN)</button>
-          
-          <div id="scan-card-container" class="scan-card-container">
-            <!-- Os cards serão injetados aqui -->
-          </div>
-          
-          <div id="scan-finished-state" class="hidden empty-state" style="max-width: 800px; margin: 0 auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <h2>🎉 Varredura Concluída!</h2>
-            <p>Por favor, informe seu nome para registrar quem realizou a verificação.</p>
-            
-            <div id="scan-finish-form" style="margin: 20px 0;">
-                <input type="text" id="collaborator-name" placeholder="Seu Nome" style="padding: 12px; font-size: 1.1rem; width: 100%; max-width: 300px; border-radius: 8px; border: 2px solid #ddd; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;">
-                <input type="text" id="collaborator-id" placeholder="Sua Matrícula" style="padding: 12px; font-size: 1.1rem; width: 100%; max-width: 300px; border-radius: 8px; border: 2px solid #ddd; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;">
-                <button id="btn-generate-report" class="btn-new" style="background: var(--primary-color); color: white; border: none; padding: 12px 24px;">Gerar Relatório de Varredura</button>
-            </div>
-            
-            <div id="scan-summary-report" class="hidden" style="margin-top: 30px; text-align: left; padding-top: 20px; border-top: 2px dashed #eee;">
-                <!-- O relatório será injetado aqui -->
-            </div>
-          </div>
-        </div>
 
       </div>
     </main>
@@ -252,41 +192,6 @@
       </div>
     </div>
 
-    <!-- Modal QR Code -->
-    <div id="qr-modal" class="modal hidden">
-      <div class="modal-content" style="text-align: center;">
-        <h3>Transferir para o Celular</h3>
-        <p>Aponte a câmera do seu celular para o QR Code abaixo:</p>
-        <div id="qrcode-container" style="margin: 20px auto; background: white; padding: 15px; display: inline-block; border-radius: 8px;"></div>
-        <p id="qr-status" style="font-weight: bold; color: #1565c0;">Aguardando conexão...</p>
-        <div class="modal-actions" style="justify-content: center; margin-top: 15px;">
-          <button id="btn-qr-cancel" class="btn-cancel">Cancelar</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tela de Carregamento (Mobile) -->
-    <div id="mobile-loading" class="modal hidden" style="background: white;">
-      <div class="modal-content" style="text-align: center; box-shadow: none;">
-        <h2>⬇️ Recebendo Dados...</h2>
-        <p>Conectando ao computador de forma segura...</p>
-        <div class="progress-bar" style="width: 100%; max-width: 300px; margin: 20px auto;"><div class="progress-fill" style="width: 100%; background: #2196f3;"></div></div>
-        <p id="mobile-status-text" style="color: #2196f3; font-weight: bold;">Estabelecendo conexão Ponto-a-Ponto...</p>
-      </div>
-    </div>
-
-    <!-- Modal Scanner (Mobile) -->
-    <div id="scanner-modal" class="modal hidden">
-      <div class="modal-content" style="text-align: center; max-width: 500px;">
-        <h3>Escanear Produto</h3>
-        <p>Aponte a câmera para o código de barras (EAN).</p>
-        <div id="reader" style="width: 100%; min-height: 250px; background: #f0f0f0; margin-bottom: 15px; border-radius: 8px; overflow: hidden;"></div>
-        <p id="scanner-status" style="font-size: 0.9rem; color: #666;"></p>
-        <div class="modal-actions" style="justify-content: center;">
-          <button id="btn-scanner-cancel" class="btn-cancel">Fechar Leitor</button>
-        </div>
-      </div>
-    </div>
 
     <!-- Indicador Flutuante do Scraper (Não bloqueante) -->
     <div id="scraper-indicator">
@@ -301,8 +206,7 @@
       <p id="lightbox-caption"></p>
     </div>
 
-    <!-- Bibliotecas Scanner -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+
     <script type="module" src="./main.js"></script>
   </body>
 </html>

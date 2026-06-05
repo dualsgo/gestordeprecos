@@ -65,28 +65,57 @@ export function getCategoryIcon(productName) {
 // Scraper via Proxy local (Vite)
 export async function scrapeImageFromRiHappy(ean) {
     if (!ean || ean === 'N/A' || ean === '-') return null;
-    try {
-        const targetUrl = encodeURIComponent(`https://www.rihappy.com.br/${ean}/rihappy?map=ft,vendido-por`);
-        const response = await fetch(`https://api.allorigins.win/get?url=${targetUrl}`);
-        if (!response.ok) return null;
-        
-        const data = await response.json();
-        const html = data.contents;
-        
-        // 1. Tentar pegar do og:image (ocorre quando a busca redireciona direto pro produto exato)
-        const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
-                        html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
-        if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
-            return ogMatch[1];
-        }
+    
+    const targetUrl = encodeURIComponent(`https://www.rihappy.com.br/${ean}/rihappy?map=ft,vendido-por`);
+    const proxies = [
+        `https://api.allorigins.win/get?url=${targetUrl}`,
+        `https://api.codetabs.com/v1/proxy?quest=https://www.rihappy.com.br/${ean}/rihappy?map=ft,vendido-por`
+    ];
 
-        // 2. Tentar pegar direto do cache JSON injetado pelo VTEX IO na página de busca
-        const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
-        if (imgMatch && imgMatch[1]) {
-            return imgMatch[1];
+    for (const proxyUrl of proxies) {
+        try {
+            const response = await fetch(proxyUrl);
+            if (!response.ok) continue;
+            
+            let html = '';
+            if (proxyUrl.includes('allorigins')) {
+                const data = await response.json();
+                html = data.contents;
+            } else {
+                html = await response.text();
+            }
+            
+            // 1. Tentar pegar do JSON-LD (Schema.org Product)
+            const ldScripts = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+            if (ldScripts) {
+                for (const script of ldScripts) {
+                    if (script.includes('"@type":"Product"') || script.includes('"@type": "Product"')) {
+                        const imgMatch = script.match(/"image":\s*"([^"]+)"/);
+                        if (imgMatch && imgMatch[1]) {
+                            return imgMatch[1];
+                        }
+                    }
+                }
+            }
+            
+            // 2. Tentar pegar do og:image
+            const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
+                            html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
+            if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
+                return ogMatch[1];
+            }
+
+            // 3. Tentar pegar direto do cache JSON injetado pelo VTEX IO
+            const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i) ||
+                             html.match(/"image":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
+            if (imgMatch && imgMatch[1]) {
+                return imgMatch[1];
+            }
+        } catch (e) {
+            console.error(`Erro no auto-scrape da RiHappy com proxy ${proxyUrl}:`, e);
         }
-    } catch (e) {
-        console.error('Erro no auto-scrape da RiHappy:', e);
     }
+    
+    // Tentar fallback genérico se não achou na RiHappy
     return null;
 }
