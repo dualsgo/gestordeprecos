@@ -74,82 +74,86 @@ export async function scrapeImageFromRiHappy(ean) {
         `https://api.codetabs.com/v1/proxy?quest=https://www.rihappy.com.br${targetPath}`
     ];
 
-    for (const proxyUrl of proxies) {
-        try {
-            // Se o servidor demorar mais de 8 segundos para responder, ele aborta e pula pro próximo
-            const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-            if (!response.ok) continue;
-            
-            let html = '';
-            if (proxyUrl.includes('allorigins')) {
-                const data = await response.json();
-                html = data.contents;
-            } else {
-                html = await response.text();
-            }
-            
-            let imageUrl = null;
-            let extractedEan = null;
-
-            // 1. Tentar pegar do JSON-LD (Schema.org Product)
-            const ldScripts = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
-            if (ldScripts) {
-                for (const script of ldScripts) {
-                    if (script.includes('"@type":"Product"') || script.includes('"@type": "Product"')) {
-                        const imgMatch = script.match(/"image":\s*"([^"]+)"/);
-                        if (imgMatch && imgMatch[1]) imageUrl = imgMatch[1];
-                        
-                        const eanMatchJson = script.match(/"gtin":\s*"(\d+)"/);
-                        if (eanMatchJson && eanMatchJson[1]) extractedEan = eanMatchJson[1];
-                    }
-                }
-            }
-            
-            // 2. Tentar pegar do og:image
-            if (!imageUrl) {
-                const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
-                                html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
-                if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
-                    imageUrl = ogMatch[1];
-                }
-            }
-
-            // 3. Tentar pegar direto do cache JSON injetado pelo VTEX IO
-            if (!imageUrl) {
-                const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i) ||
-                                 html.match(/"image":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
-                if (imgMatch && imgMatch[1]) {
-                    imageUrl = imgMatch[1];
-                }
-            }
-
-            // 4. Tentar pegar a imagem direto da vitrine de resultados de busca (VTEX)
-            if (!imageUrl) {
-                const searchImgMatch = html.match(/<img[^>]+src="([^"]+)"[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]*>/i) ||
-                                       html.match(/<img[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]+src="([^"]+)"[^>]*>/i) ||
-                                       html.match(/src="([^"]+\/arquivos\/ids\/[^"]+)"/i);
-                                       
-                if (searchImgMatch && searchImgMatch[1]) {
-                    imageUrl = searchImgMatch[1].replace(/&amp;/g, '&');
-                }
-            }
-
-            // 5. Tentar resgatar o EAN do DOM caso não tenha achado no JSON-LD
-            if (!extractedEan) {
-                const domEanMatch = html.match(/data-specification-name="C\u00f3digo de Barras" data-specification-value="(\d+)"/i) ||
-                                    html.match(/data-specification-name="C\u00f3digo de Barras"[^>]*>.*?<\/span>.*?data-specification-value="(\d+)"/i);
-                if (domEanMatch && domEanMatch[1]) {
-                    extractedEan = domEanMatch[1];
-                }
-            }
-
-            if (imageUrl) {
-                return { imageUrl, ean: extractedEan };
-            }
-        } catch (e) {
-            console.error(`Erro no auto-scrape da RiHappy com proxy ${proxyUrl}:`, e);
+    const fetchProxy = async (proxyUrl) => {
+        // Reduzimos o timeout de 8s para 5s
+        const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+        if (!response.ok) throw new Error("Erro na requisição ou status != 2xx");
+        
+        let html = '';
+        if (proxyUrl.includes('allorigins')) {
+            const data = await response.json();
+            html = data.contents;
+        } else {
+            html = await response.text();
         }
+        
+        let imageUrl = null;
+        let extractedEan = null;
+
+        // 1. Tentar pegar do JSON-LD (Schema.org Product)
+        const ldScripts = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+        if (ldScripts) {
+            for (const script of ldScripts) {
+                if (script.includes('"@type":"Product"') || script.includes('"@type": "Product"')) {
+                    const imgMatch = script.match(/"image":\s*"([^"]+)"/);
+                    if (imgMatch && imgMatch[1]) imageUrl = imgMatch[1];
+                    
+                    const eanMatchJson = script.match(/"gtin":\s*"(\d+)"/);
+                    if (eanMatchJson && eanMatchJson[1]) extractedEan = eanMatchJson[1];
+                }
+            }
+        }
+        
+        // 2. Tentar pegar do og:image
+        if (!imageUrl) {
+            const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
+                            html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
+            if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
+                imageUrl = ogMatch[1];
+            }
+        }
+
+        // 3. Tentar pegar direto do cache JSON injetado pelo VTEX IO
+        if (!imageUrl) {
+            const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i) ||
+                             html.match(/"image":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
+            if (imgMatch && imgMatch[1]) {
+                imageUrl = imgMatch[1];
+            }
+        }
+
+        // 4. Tentar pegar a imagem direto da vitrine de resultados de busca (VTEX)
+        if (!imageUrl) {
+            const searchImgMatch = html.match(/<img[^>]+src="([^"]+)"[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]*>/i) ||
+                                   html.match(/<img[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]+src="([^"]+)"[^>]*>/i) ||
+                                   html.match(/src="([^"]+\/arquivos\/ids\/[^"]+)"/i);
+                                   
+            if (searchImgMatch && searchImgMatch[1]) {
+                imageUrl = searchImgMatch[1].replace(/&amp;/g, '&');
+            }
+        }
+
+        // 5. Tentar resgatar o EAN do DOM caso não tenha achado no JSON-LD
+        if (!extractedEan) {
+            const domEanMatch = html.match(/data-specification-name="C\u00f3digo de Barras" data-specification-value="(\d+)"/i) ||
+                                html.match(/data-specification-name="C\u00f3digo de Barras"[^>]*>.*?<\/span>.*?data-specification-value="(\d+)"/i);
+            if (domEanMatch && domEanMatch[1]) {
+                extractedEan = domEanMatch[1];
+            }
+        }
+
+        if (imageUrl) {
+            return { imageUrl, ean: extractedEan };
+        }
+        
+        throw new Error("Imagem não encontrada");
+    };
+
+    try {
+        // Dispara todos os proxies simultaneamente e usa o primeiro que der certo (Promise.any)
+        return await Promise.any(proxies.map(fetchProxy));
+    } catch (e) {
+        // Cai aqui se TODOS os proxies falharem
+        return null;
     }
-    
-    return null;
 }

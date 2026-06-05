@@ -443,8 +443,7 @@ async function runAutoScraperInBackground(data) {
         
         current++;
         updateProgress(current);
-        
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 300));
     }
 
     if (timerInterval) clearInterval(timerInterval);
