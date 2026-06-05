@@ -76,7 +76,8 @@ export async function scrapeImageFromRiHappy(ean) {
 
     for (const proxyUrl of proxies) {
         try {
-            const response = await fetch(proxyUrl);
+            // Se o servidor demorar mais de 8 segundos para responder, ele aborta e pula pro próximo
+            const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
             if (!response.ok) continue;
             
             let html = '';
