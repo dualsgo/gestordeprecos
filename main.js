@@ -373,11 +373,7 @@ async function runAutoScraperInBackground(data) {
     window.cancelScraper = false;
     const total = itemsToScrape.length;
     let current = 0;
-    
-    const estimatedSeconds = Math.ceil(total * 1.5);
-    const estMins = Math.floor(estimatedSeconds / 60);
-    const estSecs = estimatedSeconds % 60;
-    const timeStr = estMins > 0 ? `${estMins} min e ${estSecs} seg` : `${estSecs} segundos`;
+    let scrapeStartTime = Date.now();
 
     const overlay = document.getElementById('scraper-overlay');
     const textProgress = document.getElementById('scraper-progress-text');
@@ -390,16 +386,32 @@ async function runAutoScraperInBackground(data) {
         if (barProgress) barProgress.style.width = `${(cur / total) * 100}%`;
     };
 
+    let timerInterval;
+
     if (overlay) {
         updateProgress(0);
-        textTime.textContent = timeStr;
         overlay.classList.remove('hidden');
+        
+        timerInterval = setInterval(() => {
+            let remainingSecs = 0;
+            if (current > 0) {
+                const elapsedSecs = (Date.now() - scrapeStartTime) / 1000;
+                const avgSecs = elapsedSecs / current;
+                remainingSecs = Math.ceil(avgSecs * (total - current));
+            } else {
+                remainingSecs = Math.ceil(total * 1.5);
+            }
+            const mins = Math.floor(remainingSecs / 60);
+            const secs = remainingSecs % 60;
+            if (textTime) textTime.textContent = mins > 0 ? `${mins} min e ${secs} seg` : `${secs} segundos`;
+        }, 1000);
         
         btnCancel.onclick = () => {
             window.cancelScraper = true;
             btnCancel.textContent = "Interrompendo... por favor aguarde um momento.";
             btnCancel.disabled = true;
             btnCancel.style.background = "#9ca3af";
+            clearInterval(timerInterval);
         };
     }
     
@@ -434,6 +446,8 @@ async function runAutoScraperInBackground(data) {
         
         await new Promise(r => setTimeout(r, 1000));
     }
+
+    if (timerInterval) clearInterval(timerInterval);
 
     if (currentGlobalData) renderResults(currentGlobalData);
 
