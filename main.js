@@ -171,7 +171,7 @@ if (btnModalDelete) {
 
 
 function formatMoney(value) {
-    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function getDiffBadge(oldPrice, newPrice, isRebaixa = false) {
@@ -269,28 +269,28 @@ function populateTableGrouped(tableId, items, colsCallback, colorVar) {
         }
 
         groupedItems.sort((a, b) => {
-            const getDiff = (item) => {
+            const getImpact = (item) => {
                 if (item.promocao > 0) {
                     const basePrice = item.precoAnterior > 0 ? item.precoAnterior : item.novoPreco;
-                    return Math.abs(basePrice - item.promocao);
+                    return Math.abs(basePrice - item.promocao) * (item.estoque || 1);
                 }
-                return Math.abs(item.novoPreco - item.precoAnterior);
+                return Math.abs(item.novoPreco - item.precoAnterior) * (item.estoque || 1);
             };
-            return getDiff(b) - getDiff(a);
+            return getImpact(b) - getImpact(a);
         });
 
         groupedItems.forEach(item => {
             const tr = document.createElement('tr');
-            const eanText = (item.ean && item.ean !== 'N/A') ? item.ean : '-';
+            const eanText = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : 'Sem EAN';
             const imgHtml = getImageHtml(item);
 
             tr.innerHTML = `
                 <td>${imgHtml}</td>
-                <td>${item.codInt}</td>
-                <td style="color: #607d8b; font-size: 0.9rem;">${eanText}</td>
-                <td><strong>${item.mercadoria}</strong></td>
-                <td>${item.fornecedorCod}</td>
-                <td><strong>${item.estoque}</strong></td>
+                <td>
+                    <div style="font-size: 1.15rem; font-weight: 700; color: #1f2937; margin-bottom: 4px;">${item.mercadoria}</div>
+                    <div style="color: #64748b; font-size: 0.85rem; font-weight: 500;">SAP: ${item.codInt} &nbsp;|&nbsp; EAN: <span style="color:#0ea5e9">${eanText}</span> &nbsp;|&nbsp; Ref: ${item.fornecedorCod}</div>
+                </td>
+                <td style="font-size: 1.25rem; font-weight: 800; color: #334155; text-align: center;">${item.estoque}</td>
                 ${colsCallback(item)}
             `;
             tbody.appendChild(tr);
@@ -299,29 +299,49 @@ function populateTableGrouped(tableId, items, colsCallback, colorVar) {
 }
 
 function renderResults(data) {
-    populateTableGrouped('table-aumentos', data.aumentos, (item) => `
-        <td class="price">${formatMoney(item.precoAnterior)}</td>
-        <td class="price" style="color: var(--danger-color);">${formatMoney(item.novoPreco)} ${getDiffBadge(item.precoAnterior, item.novoPreco, false)}</td>
-    `, 'var(--danger-color)');
+    populateTableGrouped('table-aumentos', data.aumentos, (item) => {
+        const diff = item.novoPreco - item.precoAnterior;
+        const pct = item.precoAnterior > 0 ? (diff / item.precoAnterior) * 100 : 0;
+        return `
+        <td class="price" style="font-size: 1.1rem; color: #64748b; text-decoration: line-through;">${formatMoney(item.precoAnterior)}</td>
+        <td class="price" style="color: var(--danger-color); font-size: 1.4rem; font-weight: 800;">${formatMoney(item.novoPreco)}</td>
+        <td style="color: var(--danger-color); font-weight: bold; font-size: 1.15rem; text-align: right; background: #fef2f2; border-radius: 6px;">+ ${formatMoney(Math.abs(diff))}<br><small style="font-size:0.85rem">(+${pct.toFixed(1)}%)</small></td>
+    `;
+    }, 'var(--danger-color)');
 
     populateTableGrouped('table-ofertas', data.entradasOferta, (item) => {
         const basePrice = item.precoAnterior > 0 ? item.precoAnterior : item.novoPreco;
+        const diff = basePrice - item.promocao;
+        const pct = basePrice > 0 ? (diff / basePrice) * 100 : 0;
         return `
-        <td class="price">${formatMoney(basePrice)}</td>
-        <td class="price" style="color: var(--success-color);">${formatMoney(item.promocao)} ${getDiffBadge(basePrice, item.promocao, false)}</td>
+        <td class="price" style="font-size: 1.1rem; color: #64748b; text-decoration: line-through;">${formatMoney(basePrice)}</td>
+        <td class="price" style="color: var(--success-color); font-size: 1.4rem; font-weight: 800;">${formatMoney(item.promocao)}</td>
+        <td style="color: var(--success-color); font-weight: bold; font-size: 1.15rem; text-align: right; background: #ecfdf5; border-radius: 6px;">- ${formatMoney(Math.abs(diff))}<br><small style="font-size:0.85rem">(-${pct.toFixed(1)}%)</small></td>
         `;
     }, 'var(--success-color)');
 
-    populateTableGrouped('table-rebaixas', data.rebaixas, (item) => `
-        <td class="price">${formatMoney(item.precoAnterior)}</td>
-        <td class="price" style="color: var(--info-color);">${formatMoney(item.novoPreco)} ${getDiffBadge(item.precoAnterior, item.novoPreco, true)}</td>
-    `, 'var(--info-color)');
+    populateTableGrouped('table-rebaixas', data.rebaixas, (item) => {
+        const diff = item.precoAnterior - item.novoPreco;
+        const pct = item.precoAnterior > 0 ? (diff / item.precoAnterior) * 100 : 0;
+        return `
+        <td class="price" style="font-size: 1.1rem; color: #64748b; text-decoration: line-through;">${formatMoney(item.precoAnterior)}</td>
+        <td class="price" style="color: var(--info-color); font-size: 1.4rem; font-weight: 800;">${formatMoney(item.novoPreco)}</td>
+        <td style="color: var(--info-color); font-weight: bold; font-size: 1.15rem; text-align: right; background: #eff6ff; border-radius: 6px;">- ${formatMoney(Math.abs(diff))}<br><small style="font-size:0.85rem">(-${pct.toFixed(1)}%)</small></td>
+    `;
+    }, 'var(--info-color)');
 
-    populateTableGrouped('table-terminos', data.terminosOferta, (item) => `
-        <td class="price">${formatMoney(item.precoAnterior)}</td>
-        <td class="price" style="color: var(--warning-color);">${formatMoney(item.novoPreco)} ${getDiffBadge(item.precoAnterior, item.novoPreco, false)}</td>
-    `, 'var(--warning-color)');
+    populateTableGrouped('table-terminos', data.terminosOferta, (item) => {
+        const diff = item.novoPreco - item.precoAnterior;
+        const pct = item.precoAnterior > 0 ? (diff / item.precoAnterior) * 100 : 0;
+        return `
+        <td class="price" style="font-size: 1.1rem; color: #64748b; text-decoration: line-through;">${formatMoney(item.precoAnterior)}</td>
+        <td class="price" style="color: var(--warning-color); font-size: 1.4rem; font-weight: 800;">${formatMoney(item.novoPreco)}</td>
+        <td style="color: #d97706; font-weight: bold; font-size: 1.15rem; text-align: right; background: #fffbeb; border-radius: 6px;">+ ${formatMoney(Math.abs(diff))}<br><small style="font-size:0.85rem">(+${pct.toFixed(1)}%)</small></td>
+    `;
+    }, 'var(--warning-color)');
 }
+
+window.cancelScraper = false;
 
 async function runAutoScraperInBackground(data) {
     let allItems = [];
@@ -338,33 +358,80 @@ async function runAutoScraperInBackground(data) {
     });
 
     if (itemsToScrape.length === 0) return;
-    console.log(`🤖 Iniciando auto-scrape para ${itemsToScrape.length} produtos sem foto...`);
+    
+    window.cancelScraper = false;
+    const total = itemsToScrape.length;
+    let current = 0;
+    
+    const estimatedSeconds = Math.ceil(total * 1.5);
+    const estMins = Math.floor(estimatedSeconds / 60);
+    const estSecs = estimatedSeconds % 60;
+    const timeStr = estMins > 0 ? `${estMins} min e ${estSecs} seg` : `${estSecs} segundos`;
 
-    const scraperIndicator = document.getElementById('scraper-indicator');
-    const scraperText = document.getElementById('scraper-text');
-    if(scraperIndicator) scraperIndicator.classList.add('visible');
+    const overlay = document.getElementById('scraper-overlay');
+    const textProgress = document.getElementById('scraper-progress-text');
+    const barProgress = document.getElementById('scraper-progress-fill');
+    const textTime = document.getElementById('scraper-time-estimate');
+    const btnCancel = document.getElementById('btn-scraper-cancel');
+
+    const updateProgress = (cur) => {
+        if (textProgress) textProgress.textContent = `${cur} / ${total}`;
+        if (barProgress) barProgress.style.width = `${(cur / total) * 100}%`;
+    };
+
+    if (overlay) {
+        updateProgress(0);
+        textTime.textContent = timeStr;
+        overlay.classList.remove('hidden');
+        
+        btnCancel.onclick = () => {
+            window.cancelScraper = true;
+            btnCancel.textContent = "Interrompendo... por favor aguarde um momento.";
+            btnCancel.disabled = true;
+            btnCancel.style.background = "#9ca3af";
+        };
+    }
     
     window.isScraping = true;
 
     for (const item of itemsToScrape) {
-        if (getProductImage(item.codInt)) continue;
+        if (window.cancelScraper) {
+            console.log("Scraping interrompido pelo usuário.");
+            break;
+        }
 
-        if(scraperText) scraperText.textContent = `Buscando foto: ${item.mercadoria.substring(0, 15)}...`;
+        if (getProductImage(item.codInt)) {
+            current++;
+            updateProgress(current);
+            continue;
+        }
 
         const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : item.codInt;
 
-        const imageUrl = await scrapeImageFromRiHappy(queryId);
-        if (imageUrl) {
+        const result = await scrapeImageFromRiHappy(queryId);
+        if (result && result.imageUrl) {
             console.log(`✨ Imagem resgatada com sucesso para: ${item.mercadoria}`);
-            saveProductImage(item.codInt, imageUrl, item.mercadoria);
+            saveProductImage(item.codInt, result.imageUrl, item.mercadoria);
             
-            if (currentGlobalData) renderResults(currentGlobalData);
+            if (result.ean && (!item.ean || item.ean === 'N/A' || item.ean === '-')) {
+                item.ean = result.ean;
+            }
         }
+        
+        current++;
+        updateProgress(current);
         
         await new Promise(r => setTimeout(r, 1000));
     }
 
-    if(scraperIndicator) scraperIndicator.classList.remove('visible');
+    if (currentGlobalData) renderResults(currentGlobalData);
+
+    if (overlay) {
+        overlay.classList.add('hidden');
+        btnCancel.textContent = "PULAR ISSO E VER O RELATÓRIO AGORA";
+        btnCancel.disabled = false;
+        btnCancel.style.background = "#ef4444";
+    }
     window.isScraping = false;
 }
 
@@ -379,7 +446,7 @@ window.generatePrintReport = function() {
 
     const imgThumb = (codInt) => {
         const img = getProductImage(codInt);
-        return img ? `<img src="${img}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #eee;" />` : '<span style="font-size:1.4rem;">📦</span>';
+        return img ? `<img src="${img}" style="width:64px;height:64px;object-fit:contain;background:white;border-radius:6px;border:1px solid #eee;" />` : '<span style="font-size:1.8rem;">📦</span>';
     };
 
     let title = 'Relatório de Alteração de Preços';
@@ -398,32 +465,63 @@ window.generatePrintReport = function() {
       <div class="summary-box"><div class="count">${totalItens}</div><div class="label">Total de Itens</div></div>
     </div>`;
 
-    const buildSection = (secTitle, color, items, renderRow) => {
+    const buildSection = (secTitle, color, items, renderRow, colLabels) => {
         if (!items || !items.length) return '';
+        const [colAntigo, colNovo, colVar] = colLabels;
         return `
-        <div class="section-container" style="margin-bottom:28px; page-break-inside:avoid;">
-            <div style="background:${color}; color:white; padding:8px 12px; font-weight:bold; border-radius:6px 6px 0 0;">${secTitle} (${items.length} itens)</div>
-            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+        <div class="section-container" style="page-break-inside:avoid; border-bottom: 2px dashed #ccc;">
+            <div style="background:${color}; color:white; padding:6px 12px; font-weight:bold;">${secTitle} (${items.length} itens)</div>
+            <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
                 <thead><tr style="background:#f5f5f5; text-align:left;">
-                    <th style="padding:6px;">Foto</th><th style="padding:6px;">SAP</th><th style="padding:6px;">Produto</th><th style="padding:6px;">Estoque</th><th style="padding:6px;">Preços</th>
+                    <th style="padding:8px; width:80px;">Foto</th><th style="padding:8px; width:45%;">Produto</th><th style="padding:8px; text-align:center;">Estoque</th><th style="padding:8px;">${colAntigo}</th><th style="padding:8px;">${colNovo}</th><th style="padding:8px; text-align:right;">${colVar}</th>
                 </tr></thead>
                 <tbody>${items.map(item => `
                     <tr style="border-bottom:1px solid #ddd;">
-                        <td style="padding:6px;">${imgThumb(item.codInt)}</td>
-                        <td style="padding:6px;">${item.codInt}</td>
-                        <td style="padding:6px;"><strong>${item.mercadoria}</strong><br><small style="color:#666;">EAN: ${item.ean}</small></td>
-                        <td style="padding:6px;">${item.estoque}</td>
-                        <td style="padding:6px;">${renderRow(item)}</td>
+                        <td style="padding:6px; text-align:center;">${imgThumb(item.codInt)}</td>
+                        <td style="padding:6px;">
+                            <strong style="font-size:1.05rem;">${item.mercadoria}</strong><br>
+                            <small style="color:#555;">SAP: <strong>${item.codInt}</strong> &nbsp;|&nbsp; Ref: <strong>${item.fornecedorCod}</strong> &nbsp;|&nbsp; EAN: ${item.ean && item.ean !== 'N/A' && item.ean !== '-' ? item.ean : 'Sem EAN'}</small>
+                        </td>
+                        <td style="padding:6px; text-align:center; font-weight:800; font-size:1.2rem;">${item.estoque}</td>
+                        ${renderRow(item)}
                     </tr>`).join('')}
                 </tbody>
             </table>
         </div>`;
     };
 
-    contentHtml += buildSection('🔴 AUMENTOS', '#ef4444', currentGlobalData.aumentos, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
-    contentHtml += buildSection('🟠 TÉRMINOS DE OFERTA', '#f59e0b', currentGlobalData.terminosOferta, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
-    contentHtml += buildSection('🟢 ENTRADAS DE OFERTA', '#10b981', currentGlobalData.entradasOferta, i => `Para <strong>${fmtMoney(i.promocao)}</strong>`);
-    contentHtml += buildSection('🔵 REBAIXAS', '#3b82f6', currentGlobalData.rebaixas, i => `De ${fmtMoney(i.precoAnterior)} para <strong>${fmtMoney(i.novoPreco)}</strong>`);
+    contentHtml += buildSection('🔴 AUMENTOS', '#ef4444', currentGlobalData.aumentos, i => {
+        const diff = i.novoPreco - i.precoAnterior;
+        const pct = i.precoAnterior > 0 ? (diff / i.precoAnterior) * 100 : 0;
+        return `<td style="padding:8px; color:#64748b; text-decoration:line-through;">${fmtMoney(i.precoAnterior)}</td>
+                <td style="padding:8px; color:#ef4444; font-weight:bold; font-size:1.1rem;">${fmtMoney(i.novoPreco)}</td>
+                <td style="padding:8px; color:#ef4444; font-weight:bold; text-align:right;">+ ${fmtMoney(diff)}<br><small>(+${pct.toFixed(1)}%)</small></td>`;
+    }, ['Saindo de:', 'Aumentando para:', 'Aumento de:']);
+    
+    contentHtml += buildSection('🟠 TÉRMINOS DE OFERTA', '#f59e0b', currentGlobalData.terminosOferta, i => {
+        const diff = i.novoPreco - i.precoAnterior;
+        const pct = i.precoAnterior > 0 ? (diff / i.precoAnterior) * 100 : 0;
+        return `<td style="padding:8px; color:#64748b; text-decoration:line-through;">${fmtMoney(i.precoAnterior)}</td>
+                <td style="padding:8px; color:#d97706; font-weight:bold; font-size:1.1rem;">${fmtMoney(i.novoPreco)}</td>
+                <td style="padding:8px; color:#d97706; font-weight:bold; text-align:right;">+ ${fmtMoney(diff)}<br><small>(+${pct.toFixed(1)}%)</small></td>`;
+    }, ['Saindo da Oferta:', 'Voltando para:', 'Aumento de:']);
+    
+    contentHtml += buildSection('🟢 ENTRADAS DE OFERTA', '#10b981', currentGlobalData.entradasOferta, i => {
+        const base = i.precoAnterior > 0 ? i.precoAnterior : i.novoPreco;
+        const diff = base - i.promocao;
+        const pct = base > 0 ? (diff / base) * 100 : 0;
+        return `<td style="padding:8px; color:#64748b; text-decoration:line-through;">${fmtMoney(base)}</td>
+                <td style="padding:8px; color:#10b981; font-weight:bold; font-size:1.1rem;">${fmtMoney(i.promocao)}</td>
+                <td style="padding:8px; color:#10b981; font-weight:bold; text-align:right;">- ${fmtMoney(diff)}<br><small>(-${pct.toFixed(1)}%)</small></td>`;
+    }, ['Preço Normal:', 'Oferta para:', 'Desconto de:']);
+    
+    contentHtml += buildSection('🔵 REBAIXAS', '#3b82f6', currentGlobalData.rebaixas, i => {
+        const diff = i.precoAnterior - i.novoPreco;
+        const pct = i.precoAnterior > 0 ? (diff / i.precoAnterior) * 100 : 0;
+        return `<td style="padding:8px; color:#64748b; text-decoration:line-through;">${fmtMoney(i.precoAnterior)}</td>
+                <td style="padding:8px; color:#3b82f6; font-weight:bold; font-size:1.1rem;">${fmtMoney(i.novoPreco)}</td>
+                <td style="padding:8px; color:#3b82f6; font-weight:bold; text-align:right;">- ${fmtMoney(diff)}<br><small>(-${pct.toFixed(1)}%)</small></td>`;
+    }, ['Saindo de:', 'Baixando para:', 'Redução de:']);
 
 
     const html = `<!DOCTYPE html>
@@ -434,11 +532,11 @@ window.generatePrintReport = function() {
 <style>
   html, body { height: 100%; margin: 0; padding: 0; }
   body { font-family: sans-serif; color: #333; padding: 20px; }
-  @page { size: A4 portrait; margin: 1cm; }
+  @page { size: A4 landscape; margin: 0.8cm; }
   @media print { 
     .no-print { display: none !important; } 
     body { padding: 0; margin: 0; } 
-    .section-container:last-of-type { margin-bottom: 0 !important; }
+    .section-container:last-of-type { border-bottom: none !important; }
   }
   .header { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items: center; }
   .header h1 { margin:0; font-size: 1.5rem; }

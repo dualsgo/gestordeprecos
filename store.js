@@ -66,10 +66,12 @@ export function getCategoryIcon(productName) {
 export async function scrapeImageFromRiHappy(ean) {
     if (!ean || ean === 'N/A' || ean === '-') return null;
     
-    const targetUrl = encodeURIComponent(`https://www.rihappy.com.br/${ean}/rihappy?map=ft,vendido-por`);
+    const targetPath = `/${ean}/rihappy?map=ft,vendido-por`;
+    const targetUrl = encodeURIComponent(`https://www.rihappy.com.br${targetPath}`);
     const proxies = [
+        `/api/rihappy${targetPath}`,
         `https://api.allorigins.win/get?url=${targetUrl}`,
-        `https://api.codetabs.com/v1/proxy?quest=https://www.rihappy.com.br/${ean}/rihappy?map=ft,vendido-por`
+        `https://api.codetabs.com/v1/proxy?quest=https://www.rihappy.com.br${targetPath}`
     ];
 
     for (const proxyUrl of proxies) {
@@ -85,37 +87,68 @@ export async function scrapeImageFromRiHappy(ean) {
                 html = await response.text();
             }
             
+            let imageUrl = null;
+            let extractedEan = null;
+
             // 1. Tentar pegar do JSON-LD (Schema.org Product)
             const ldScripts = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
             if (ldScripts) {
                 for (const script of ldScripts) {
                     if (script.includes('"@type":"Product"') || script.includes('"@type": "Product"')) {
                         const imgMatch = script.match(/"image":\s*"([^"]+)"/);
-                        if (imgMatch && imgMatch[1]) {
-                            return imgMatch[1];
-                        }
+                        if (imgMatch && imgMatch[1]) imageUrl = imgMatch[1];
+                        
+                        const eanMatchJson = script.match(/"gtin":\s*"(\d+)"/);
+                        if (eanMatchJson && eanMatchJson[1]) extractedEan = eanMatchJson[1];
                     }
                 }
             }
             
             // 2. Tentar pegar do og:image
-            const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
-                            html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
-            if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
-                return ogMatch[1];
+            if (!imageUrl) {
+                const ogMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || 
+                                html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
+                if (ogMatch && ogMatch[1] && !ogMatch[1].includes('logo')) {
+                    imageUrl = ogMatch[1];
+                }
             }
 
             // 3. Tentar pegar direto do cache JSON injetado pelo VTEX IO
-            const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i) ||
-                             html.match(/"image":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
-            if (imgMatch && imgMatch[1]) {
-                return imgMatch[1];
+            if (!imageUrl) {
+                const imgMatch = html.match(/"imageUrl":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i) ||
+                                 html.match(/"image":"(https:\/\/[^"]+\/arquivos\/ids\/[^"]+)"/i);
+                if (imgMatch && imgMatch[1]) {
+                    imageUrl = imgMatch[1];
+                }
+            }
+
+            // 4. Tentar pegar a imagem direto da vitrine de resultados de busca (VTEX)
+            if (!imageUrl) {
+                const searchImgMatch = html.match(/<img[^>]+src="([^"]+)"[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]*>/i) ||
+                                       html.match(/<img[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]+src="([^"]+)"[^>]*>/i) ||
+                                       html.match(/src="([^"]+\/arquivos\/ids\/[^"]+)"/i);
+                                       
+                if (searchImgMatch && searchImgMatch[1]) {
+                    imageUrl = searchImgMatch[1].replace(/&amp;/g, '&');
+                }
+            }
+
+            // 5. Tentar resgatar o EAN do DOM caso não tenha achado no JSON-LD
+            if (!extractedEan) {
+                const domEanMatch = html.match(/data-specification-name="C\u00f3digo de Barras" data-specification-value="(\d+)"/i) ||
+                                    html.match(/data-specification-name="C\u00f3digo de Barras"[^>]*>.*?<\/span>.*?data-specification-value="(\d+)"/i);
+                if (domEanMatch && domEanMatch[1]) {
+                    extractedEan = domEanMatch[1];
+                }
+            }
+
+            if (imageUrl) {
+                return { imageUrl, ean: extractedEan };
             }
         } catch (e) {
             console.error(`Erro no auto-scrape da RiHappy com proxy ${proxyUrl}:`, e);
         }
     }
     
-    // Tentar fallback genérico se não achou na RiHappy
     return null;
 }

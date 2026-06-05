@@ -419,16 +419,17 @@ tbody tr:hover {
 .img-wrap {
   position: relative;
   display: inline-block;
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
 }
 
 .product-thumb {
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
   border-radius: 8px;
-  object-fit: cover;
+  object-fit: contain;
   border: 1px solid #ddd;
+  background: white;
   cursor: zoom-in;
   transition: transform 0.2s, box-shadow 0.2s;
   display: block;
@@ -465,8 +466,8 @@ tbody tr:hover {
 }
 
 .no-image {
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
   border-radius: 8px;
   background: #f0f0f0;
   display: flex;

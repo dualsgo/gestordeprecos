@@ -92,7 +92,7 @@
             </div>
             <div class="table-container">
               <table id="table-aumentos">
-                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Antigo</th><th>Novo Preço</th></tr></thead>
+                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Saindo de:</th><th>Aumentando para:</th><th>Aumento de:</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -116,7 +116,7 @@
             </div>
             <div class="table-container">
               <table id="table-ofertas">
-                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Normal</th><th>Preço Oferta</th></tr></thead>
+                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Preço Normal:</th><th>Oferta para:</th><th>Desconto de:</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -140,7 +140,7 @@
             </div>
             <div class="table-container">
               <table id="table-rebaixas">
-                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Antigo</th><th>Novo Preço</th></tr></thead>
+                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Saindo de:</th><th>Baixando para:</th><th>Redução de:</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -164,7 +164,7 @@
             </div>
             <div class="table-container">
               <table id="table-terminos">
-                <thead><tr><th>Foto</th><th>SAP</th><th>EAN</th><th>Descrição</th><th>Referência</th><th>Estoque</th><th>Atual</th><th>Aumento/Rebaixa</th></tr></thead>
+                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Saindo da Oferta:</th><th>Voltando para:</th><th>Aumento de:</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -193,10 +193,27 @@
     </div>
 
 
-    <!-- Indicador Flutuante do Scraper (Não bloqueante) -->
-    <div id="scraper-indicator">
-      <div class="spinner" style="width: 20px; height: 20px; border-width: 2px; border-top-color: var(--primary-color);"></div>
-      <span id="scraper-text">Buscando imagens na web...</span>
+    <!-- Modal Scraper Overlay -->
+    <div id="scraper-overlay" class="modal hidden" style="z-index: 9999;">
+      <div class="modal-content" style="text-align: center; max-width: 600px;">
+        <h2 style="margin-bottom: 15px; color: var(--primary-color);">Baixando Imagens 🖼️</h2>
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 10px;">Isso vai enriquecer o seu relatório para facilitar a vida na loja.</p>
+        
+        <div style="font-size: 2.5rem; font-weight: 800; color: #1f2937; margin: 20px 0;" id="scraper-progress-text">0 / 0</div>
+        
+        <div class="progress-bar" style="height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; margin-bottom: 15px;">
+          <div id="scraper-progress-fill" style="height: 100%; background: var(--primary-color); width: 0%; transition: width 0.3s ease;"></div>
+        </div>
+        
+        <p style="font-weight: bold; color: #f59e0b; font-size: 1.1rem; margin-bottom: 30px;">⏳ Tempo estimado: <span id="scraper-time-estimate">--</span></p>
+        
+        <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
+          <p style="margin-bottom: 5px; color: #b45309;"><strong>💡 Dica de Ouro:</strong> As imagens evitam erros e aceleram muito a operação de troca de preço.</p>
+          <p style="font-size: 0.95rem; color: #d97706;">Porém, se você estiver com muita pressa, pode interromper o download agora. Você sempre pode usar a opção de consultar os itens sem foto clicando neles na tabela depois.</p>
+        </div>
+        
+        <button id="btn-scraper-cancel" class="btn-cancel" style="background: #ef4444; color: white; width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">PULAR ISSO E VER O RELATÓRIO AGORA</button>
+      </div>
     </div>
 
     <!-- Lightbox: Visualizar Imagem Grande -->
