@@ -1517,3 +1517,76 @@ body.session-mode #operation-stats .stat-box:nth-child(2) { display: none; }
   }
 }
 
+/* ─── Botão Adicionar Produto ─────────────────────────────────── */
+.btn-add-product {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(106,17,203,0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-add-product:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(106,17,203,0.4);
+}
+.btn-add-product:active {
+  transform: scale(0.97);
+}
+
+/* ─── Labels de campo no modal ───────────────────────────────── */
+.field-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+/* ─── Ações inline no card (Editar / Excluir) ────────────────── */
+.catalog-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.btn-card-edit,
+.btn-card-delete {
+  flex: 1;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-card-edit {
+  background: #ede9fe;
+  color: #6a11cb;
+}
+.btn-card-edit:hover {
+  background: #ddd6fe;
+}
+.btn-card-delete {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.btn-card-delete:hover {
+  background: #fecaca;
+}
+.btn-card-edit:active,
+.btn-card-delete:active {
+  transform: scale(0.95);
+}

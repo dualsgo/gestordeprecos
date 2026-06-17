@@ -1,124 +1,157 @@
-import { processFile } from './parser.js';
 import { getProductImage, saveProductImage, deleteProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, saveDatabase } from './store.js';
 
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const resultsContainer = document.getElementById('results');
-const btnPrint = document.getElementById('btn-print');
-const btnNew = document.getElementById('btn-new');
-const dropText = document.getElementById('drop-text');
+// ─── Chaves de persistência ───────────────────────────────────────────
+const CATALOG_KEY = 'atupreco_catalog_products';
 
-// Tempo
-const statBox = document.getElementById('operation-stats');
-const statStart = document.getElementById('stat-start-time');
-const statEnd = document.getElementById('stat-end-time');
-const statDuration = document.getElementById('stat-duration');
-
-// Modal Imagem
-const modal = document.getElementById('image-modal');
-const btnModalCancel = document.getElementById('btn-modal-cancel');
-const btnModalSave = document.getElementById('btn-modal-save');
-const imgUrlInput = document.getElementById('img-url-input');
-const searchHelperLinks = document.getElementById('search-helper-links');
-
-let currentGlobalData = null;
-let currentAddingImageCode = null;
-let currentAddingImageName = null;
-let currentAddingImageEan = null;
-window.isScraping = false;
-let startTime = null;
-
-const CATALOG_KEY = 'atupreco_catalog_data';
-
-function saveCatalogData(data) {
-    try {
-        localStorage.setItem(CATALOG_KEY, JSON.stringify(data));
-    } catch (e) {
-        console.error('Erro ao salvar catálogo', e);
-    }
-}
-
-function loadCatalogData() {
+function loadProducts() {
     try {
         const raw = localStorage.getItem(CATALOG_KEY);
         if (raw) return JSON.parse(raw);
-    } catch (e) {
-        console.error('Erro ao carregar catálogo', e);
-    }
-    return null;
+    } catch (e) { console.error('Erro ao carregar produtos', e); }
+    return [];
 }
 
-dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-});
+function saveProducts(products) {
+    try {
+        localStorage.setItem(CATALOG_KEY, JSON.stringify(products));
+    } catch (e) { console.error('Erro ao salvar produtos', e); }
+}
 
-dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-});
+// ─── Estado global ────────────────────────────────────────────────────
+let products = loadProducts();
+let currentAddingImageCode = null;
+let currentAddingImageName = null;
+let currentAddingImageEan  = null;
+let editingProductId = null;   // codInt do produto em edição (null = novo)
 
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-        handleFile(e.dataTransfer.files[0]);
-    }
-});
+// ─── Referências DOM ──────────────────────────────────────────────────
+const resultsContainer   = document.getElementById('results');
+const btnPrint           = document.getElementById('btn-print');
+const modal              = document.getElementById('image-modal');
+const btnModalCancel     = document.getElementById('btn-modal-cancel');
+const btnModalSave       = document.getElementById('btn-modal-save');
+const imgUrlInput        = document.getElementById('img-url-input');
+const searchHelperLinks  = document.getElementById('search-helper-links');
 
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length) {
-        handleFile(e.target.files[0]);
-    }
-});
+// ─── Modal "Adicionar / Editar Produto" ───────────────────────────────
+const productModal = document.createElement('div');
+productModal.id = 'product-modal';
+productModal.className = 'modal hidden';
+productModal.innerHTML = `
+  <div class="modal-content" style="max-width:480px;">
+    <h3 id="product-modal-title">➕ Adicionar Produto</h3>
+    <p style="margin-bottom:16px;color:#666;">Preencha os dados do produto. Somente o <strong>Nome</strong> é obrigatório.</p>
+    <label class="field-label">Nome do Produto *</label>
+    <input type="text" id="pm-name" placeholder="Ex: LEGO Ninjago City" style="margin-bottom:12px;" />
+    <label class="field-label">Código SAP (interno)</label>
+    <input type="text" id="pm-sap" placeholder="Ex: 1234567" style="margin-bottom:12px;" />
+    <label class="field-label">EAN (código de barras)</label>
+    <input type="text" id="pm-ean" placeholder="Ex: 7891234567890" style="margin-bottom:12px;" />
+    <label class="field-label">Código de Referência (fornecedor)</label>
+    <input type="text" id="pm-ref" placeholder="Ex: ABC-001" style="margin-bottom:20px;" />
+    <div class="modal-actions">
+      <button id="btn-pm-cancel" class="btn-cancel">Cancelar</button>
+      <button id="btn-pm-save" class="btn-save">Salvar Produto</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(productModal);
 
-btnPrint.addEventListener('click', () => {
-    if (window.generatePrintReport) window.generatePrintReport();
-});
+function openProductModal(codInt = null) {
+    editingProductId = codInt;
+    const title = document.getElementById('product-modal-title');
 
-btnNew.addEventListener('click', () => {
-    resultsContainer.classList.add('hidden');
-    dropZone.style.display = 'block';
-    statBox.classList.add('hidden');
-    fileInput.value = '';
-    dropText.textContent = "Aguardando arquivo...";
-    startTime = null;
-    currentGlobalData = null;
-    localStorage.removeItem(CATALOG_KEY);
-});
-
-// Modal Logic
-window.openImageModal = function(codInt, productName, ean) {
-    currentAddingImageCode = codInt;
-    currentAddingImageName = productName;
-    currentAddingImageEan = ean;
-    imgUrlInput.value = '';
-    
-    const statusDiv = document.getElementById('modal-scrape-status');
-    if (statusDiv) statusDiv.textContent = '';
-    
-    const query = encodeURIComponent(productName);
-    const googleLink = `<a href="https://www.google.com/search?tbm=isch&q=${query}" target="_blank">🔍 Buscar no Google Imagens</a>`;
-    
-    const rihappyQuery = (ean && ean !== 'N/A' && ean !== '-') ? ean : codInt;
-    const rihappyLink = `<a href="https://www.rihappy.com.br/${rihappyQuery}/rihappy?map=ft,vendido-por" target="_blank">🧸 Buscar na RiHappy</a>`;
-
-    searchHelperLinks.innerHTML = `${googleLink} ${rihappyLink}`;
-    
-    const btnDelete = document.getElementById('btn-modal-delete');
-    if (getProductImage(codInt)) {
-        btnDelete.style.display = 'block';
+    if (codInt) {
+        const p = products.find(x => x.codInt === codInt);
+        title.textContent = '✏️ Editar Produto';
+        document.getElementById('pm-name').value = p?.mercadoria || '';
+        document.getElementById('pm-sap').value  = p?.codInt || '';
+        document.getElementById('pm-ean').value  = (p?.ean && p.ean !== 'N/A') ? p.ean : '';
+        document.getElementById('pm-ref').value  = p?.fornecedorCod || '';
     } else {
-        btnDelete.style.display = 'none';
+        title.textContent = '➕ Adicionar Produto';
+        document.getElementById('pm-name').value = '';
+        document.getElementById('pm-sap').value  = '';
+        document.getElementById('pm-ean').value  = '';
+        document.getElementById('pm-ref').value  = '';
     }
-    
-    modal.classList.remove('hidden');
+    productModal.classList.remove('hidden');
+    setTimeout(() => document.getElementById('pm-name').focus(), 50);
+}
+
+document.getElementById('btn-pm-cancel').addEventListener('click', () => {
+    productModal.classList.add('hidden');
+});
+
+document.getElementById('btn-pm-save').addEventListener('click', () => {
+    const name = document.getElementById('pm-name').value.trim();
+    const sap  = document.getElementById('pm-sap').value.trim();
+    const ean  = document.getElementById('pm-ean').value.trim();
+    const ref  = document.getElementById('pm-ref').value.trim();
+
+    if (!name) { alert('O nome do produto é obrigatório.'); return; }
+
+    const codInt = sap || ('P' + Date.now());
+
+    if (editingProductId) {
+        const idx = products.findIndex(x => x.codInt === editingProductId);
+        if (idx !== -1) {
+            products[idx] = {
+                ...products[idx],
+                mercadoria:   name,
+                codInt:       codInt,
+                ean:          ean || 'N/A',
+                fornecedorCod: ref || '-',
+                fornecedor:   'MANUAL',
+            };
+        }
+    } else {
+        products.push({
+            codInt,
+            mercadoria:    name,
+            ean:           ean || 'N/A',
+            fornecedorCod: ref || '-',
+            fornecedor:    'MANUAL',
+            precoAnterior: 0,
+            novoPreco:     0,
+            estoque:       '0',
+        });
+    }
+
+    saveProducts(products);
+    productModal.classList.add('hidden');
+    renderCatalog();
+});
+
+// ─── Excluir produto ──────────────────────────────────────────────────
+window.deleteProduct = function(codInt) {
+    if (!confirm('Tem certeza que deseja excluir este produto?')) return;
+    products = products.filter(p => p.codInt !== codInt);
+    saveProducts(products);
+    renderCatalog();
 };
 
-function closeImageModal() {
-    modal.classList.add('hidden');
+// ─── Botão Adicionar na barra de ações ───────────────────────────────
+const btnAdd = document.createElement('button');
+btnAdd.id = 'btn-add-product';
+btnAdd.className = 'btn-add-product';
+btnAdd.innerHTML = '＋ Adicionar Produto';
+btnAdd.addEventListener('click', () => openProductModal(null));
+
+const actionsWrapper = document.querySelector('.actions-wrapper');
+if (actionsWrapper) {
+    const rightActions = actionsWrapper.querySelector('.right-actions');
+    if (rightActions) rightActions.prepend(btnAdd);
 }
 
-// Lightbox
+// ─── Impressão ────────────────────────────────────────────────────────
+if (btnPrint) {
+    btnPrint.addEventListener('click', () => {
+        if (window.generatePrintReport) window.generatePrintReport();
+    });
+}
+
+// ─── Lightbox ─────────────────────────────────────────────────────────
 window.openLightbox = function(imgSrc, caption) {
     const lb = document.getElementById('lightbox');
     const lbImg = document.getElementById('lightbox-img');
@@ -129,27 +162,44 @@ window.openLightbox = function(imgSrc, caption) {
     lb.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 };
-
 window.closeLightbox = function() {
     const lb = document.getElementById('lightbox');
     if (!lb) return;
     lb.classList.add('hidden');
     document.body.style.overflow = '';
 };
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.closeLightbox(); });
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') window.closeLightbox();
-});
+// ─── Modal de Imagem ──────────────────────────────────────────────────
+window.openImageModal = function(codInt, productName, ean) {
+    currentAddingImageCode = codInt;
+    currentAddingImageName = productName;
+    currentAddingImageEan  = ean;
+    imgUrlInput.value = '';
 
-btnModalCancel.addEventListener('click', () => {
-    modal.classList.add('hidden');
-});
+    const statusDiv = document.getElementById('modal-scrape-status');
+    if (statusDiv) statusDiv.textContent = '';
 
+    const query       = encodeURIComponent(productName);
+    const googleLink  = `<a href="https://www.google.com/search?tbm=isch&q=${query}" target="_blank">🔍 Buscar no Google Imagens</a>`;
+    const rihappyQuery = (ean && ean !== 'N/A' && ean !== '-') ? ean : codInt;
+    const rihappyLink  = `<a href="https://www.rihappy.com.br/${rihappyQuery}/rihappy?map=ft,vendido-por" target="_blank">🧸 Buscar na RiHappy</a>`;
+    searchHelperLinks.innerHTML = `${googleLink} ${rihappyLink}`;
+
+    const btnDelete = document.getElementById('btn-modal-delete');
+    if (btnDelete) btnDelete.style.display = getProductImage(codInt) ? 'block' : 'none';
+
+    modal.classList.remove('hidden');
+};
+
+function closeImageModal() { modal.classList.add('hidden'); }
+
+btnModalCancel.addEventListener('click', () => modal.classList.add('hidden'));
 btnModalSave.addEventListener('click', () => {
     const url = imgUrlInput.value.trim();
     if (url && currentAddingImageCode) {
         saveProductImage(currentAddingImageCode, url, currentAddingImageName);
-        if (currentGlobalData) renderResults(currentGlobalData);
+        renderCatalog();
     }
     closeImageModal();
 });
@@ -159,19 +209,17 @@ if (btnModalAutoSearch) {
     btnModalAutoSearch.addEventListener('click', async () => {
         if (!currentAddingImageCode) return;
         const statusDiv = document.getElementById('modal-scrape-status');
-        
         statusDiv.textContent = '⏳ Buscando imagem no site... aguarde.';
         statusDiv.style.color = '#f59e0b';
-        
-        const queryId = (currentAddingImageEan && currentAddingImageEan !== 'N/A' && currentAddingImageEan !== '-') ? currentAddingImageEan : currentAddingImageCode;
-        
+        const queryId = (currentAddingImageEan && currentAddingImageEan !== 'N/A' && currentAddingImageEan !== '-')
+            ? currentAddingImageEan : currentAddingImageCode;
         const imageUrl = await scrapeImageFromRiHappy(queryId);
         if (imageUrl) {
             statusDiv.textContent = '✅ Imagem encontrada!';
             statusDiv.style.color = '#10b981';
             imgUrlInput.value = imageUrl;
             saveProductImage(currentAddingImageCode, imageUrl, currentAddingImageName);
-            if (currentGlobalData) renderResults(currentGlobalData);
+            renderCatalog();
             setTimeout(closeImageModal, 1000);
         } else {
             statusDiv.textContent = '❌ Imagem não encontrada. Tente os links abaixo ou informe a URL manualmente.';
@@ -185,115 +233,30 @@ if (btnModalDelete) {
     btnModalDelete.addEventListener('click', () => {
         if (currentAddingImageCode) {
             deleteProductImage(currentAddingImageCode);
-            if (currentGlobalData) renderResults(currentGlobalData);
+            renderCatalog();
         }
         closeImageModal();
     });
 }
 
-
-function formatMoney(value) {
-    return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function getDiffBadge(oldPrice, newPrice, isRebaixa = false) {
-    if (oldPrice <= 0) return '';
-    const diffPercent = (((newPrice - oldPrice) / oldPrice) * 100).toFixed(1);
-    
-    if (newPrice > oldPrice) {
-        return `<span class="diff-badge diff-up">↑ ${diffPercent.replace('.', ',')}%</span>`;
-    } else if (newPrice < oldPrice) {
-        return `<span class="diff-badge ${isRebaixa ? 'diff-info' : 'diff-down'}">↓ ${Math.abs(diffPercent).toString().replace('.', ',')}%</span>`;
-    }
-    return '';
-}
-
-async function handleFile(file) {
-    dropText.innerHTML = '<div class="loader-inline"><div class="spinner"></div> Processando seu relatório, aguarde...</div>';
-    try {
-        const data = await processFile(file);
-        currentGlobalData = data;
-        saveCatalogData(data);
-        
-        startTime = new Date();
-        statStart.textContent = startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
-        statEnd.textContent = '--:--';
-        statDuration.textContent = '-- min';
-        statBox.classList.remove('hidden');
-
-        renderResults(data);
-        resultsContainer.classList.remove('hidden');
-        dropZone.style.display = 'none';
-        
-        runAutoScraperInBackground(data);
-
-    } catch (error) {
-        console.error(error);
-        alert("Ocorreu um erro ao ler o arquivo. Tem certeza de que é o relatório correto?");
-        dropText.textContent = "Aguardando arquivo...";
-    }
-}
-
-// Carrega automaticamente o catálogo salvo ao iniciar
-(function initCatalog() {
-    const saved = loadCatalogData();
-    if (saved) {
-        currentGlobalData = saved;
-        renderResults(saved);
-        resultsContainer.classList.remove('hidden');
-        dropZone.style.display = 'none';
-    }
-})();
-
-function groupItemsByFornecedor(items) {
-    const grouped = {};
-    items.forEach(item => {
-        if (!grouped[item.fornecedor]) {
-            grouped[item.fornecedor] = [];
-        }
-        grouped[item.fornecedor].push(item);
-    });
-    return grouped;
-}
-
-function getImageHtml(item) {
-    const savedImg = getProductImage(item.codInt);
-    const escapedName = item.mercadoria.replace(/'/g, "\\'");
-    if (savedImg) {
-        return `
-          <div class="img-wrap">
-            <img src="${savedImg}" class="product-thumb"
-              onclick="openLightbox('${savedImg}', '${escapedName}')"
-              title="Ver imagem" />
-            <button class="edit-img-btn"
-              onclick="event.stopPropagation(); openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')"
-              title="Trocar imagem">\u270E</button>
-          </div>`;
-    } else {
-        const icon = getCategoryIcon(item.mercadoria);
-        return `<div class="no-image" onclick="openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')" title="Adicionar Imagem">${icon}</div>`;
-    }
-}
-
+// ─── Renderização do catálogo ─────────────────────────────────────────
 function renderCatalogCard(item) {
-    const savedImg = getProductImage(item.codInt);
+    const savedImg   = getProductImage(item.codInt);
     const escapedName = item.mercadoria.replace(/'/g, "\\'");
+    const eanText    = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : 'Sem EAN';
+
     let imgHtml = '';
     if (savedImg) {
         imgHtml = `<img src="${savedImg}" onclick="openLightbox('${savedImg}', '${escapedName}')" title="Ver imagem" />
-                   <button class="catalog-edit-img-btn" onclick="event.stopPropagation(); openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')" title="Trocar imagem">\u270E</button>`;
+                   <button class="catalog-edit-img-btn" onclick="event.stopPropagation(); openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')" title="Trocar imagem">✎</button>`;
     } else {
         const icon = getCategoryIcon(item.mercadoria);
         imgHtml = `<div class="catalog-no-image" onclick="openImageModal('${item.codInt}', '${escapedName}', '${item.ean}')" title="Adicionar Imagem">${icon}</div>`;
     }
 
-    const eanText = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : 'Sem EAN';
-
     return `
         <div class="catalog-card" data-sap="${item.codInt}" data-ean="${item.ean}" data-name="${item.mercadoria.toLowerCase()}">
-            <div class="catalog-img-wrapper">
-                ${imgHtml}
-            </div>
+            <div class="catalog-img-wrapper">${imgHtml}</div>
             <div class="catalog-card-body">
                 <div class="catalog-title">${item.mercadoria}</div>
                 <div class="catalog-info">
@@ -310,225 +273,84 @@ function renderCatalogCard(item) {
                         <span class="catalog-info-value">${item.fornecedorCod}</span>
                     </div>
                 </div>
+                <div class="catalog-card-actions">
+                    <button class="btn-card-edit" onclick="openProductModal('${item.codInt}')">✏️ Editar</button>
+                    <button class="btn-card-delete" onclick="deleteProduct('${item.codInt}')">🗑️ Excluir</button>
+                </div>
             </div>
         </div>
     `;
 }
 
-function renderResults(data) {
-    const grid = document.getElementById('catalog-grid');
+// Expor openProductModal globalmente
+window.openProductModal = openProductModal;
+
+function renderCatalog() {
+    const grid       = document.getElementById('catalog-grid');
     const emptyState = document.getElementById('catalog-empty-state');
     const searchInput = document.getElementById('search-input');
-    
-    if (searchInput) {
-        searchInput.value = ''; // Reseta a busca ao carregar novo relatório
-    }
-    
-    if (!grid) return;
-    grid.innerHTML = '';
-    
-    let allItems = [];
-    if (data.aumentos) allItems = allItems.concat(data.aumentos);
-    if (data.entradasOferta) allItems = allItems.concat(data.entradasOferta);
-    if (data.rebaixas) allItems = allItems.concat(data.rebaixas);
-    if (data.terminosOferta) allItems = allItems.concat(data.terminosOferta);
-    if (data.semGiro) allItems = allItems.concat(data.semGiro);
-    
-    const uniqueItems = [];
-    const seen = new Set();
-    allItems.forEach(item => {
-        if (!seen.has(item.codInt)) {
-            seen.add(item.codInt);
-            uniqueItems.push(item);
-        }
-    });
 
-    if (uniqueItems.length === 0) {
-        emptyState.classList.remove('hidden');
-        emptyState.textContent = 'Nenhum produto encontrado no relatório.';
+    if (searchInput) searchInput.value = '';
+    if (!grid) return;
+
+    if (products.length === 0) {
+        grid.innerHTML = '';
+        if (emptyState) {
+            emptyState.classList.remove('hidden');
+            emptyState.innerHTML = `
+                <div style="font-size:3rem;margin-bottom:12px;">📦</div>
+                <p style="font-size:1.1rem;font-weight:600;color:#555;margin-bottom:8px;">Seu catálogo está vazio</p>
+                <p style="color:#999;margin-bottom:20px;">Clique em <strong>＋ Adicionar Produto</strong> para começar.</p>
+            `;
+        }
         return;
     }
 
-    emptyState.classList.add('hidden');
-    let html = '';
-    uniqueItems.forEach(item => {
-        html += renderCatalogCard(item);
-    });
-    grid.innerHTML = html;
+    if (emptyState) emptyState.classList.add('hidden');
+    grid.innerHTML = products.map(renderCatalogCard).join('');
 }
 
+// ─── Busca ────────────────────────────────────────────────────────────
 const searchInput = document.getElementById('search-input');
 if (searchInput) {
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase().trim();
         const cards = document.querySelectorAll('.catalog-card');
-        let visibleCount = 0;
+        let visible = 0;
         const emptyState = document.getElementById('catalog-empty-state');
-        
+
         cards.forEach(card => {
-            const sap = card.getAttribute('data-sap') || '';
-            const ean = card.getAttribute('data-ean') || '';
-            const name = card.getAttribute('data-name') || '';
-            
-            if (sap.includes(query) || ean.includes(query) || name.includes(query)) {
-                card.style.display = 'flex';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
+            const match = (card.getAttribute('data-sap') || '').includes(query)
+                       || (card.getAttribute('data-ean') || '').includes(query)
+                       || (card.getAttribute('data-name') || '').includes(query);
+            card.style.display = match ? 'flex' : 'none';
+            if (match) visible++;
         });
 
-        if (visibleCount === 0 && cards.length > 0) {
-            if (emptyState) {
-                emptyState.classList.remove('hidden');
-                emptyState.textContent = 'Nenhum produto encontrado para "' + query + '".';
-            }
-        } else {
-            if (emptyState) emptyState.classList.add('hidden');
+        if (visible === 0 && cards.length > 0 && emptyState) {
+            emptyState.classList.remove('hidden');
+            emptyState.textContent = `Nenhum produto encontrado para "${query}".`;
+        } else if (emptyState) {
+            emptyState.classList.add('hidden');
         }
     });
 }
 
-window.cancelScraper = false;
-
-async function runAutoScraperInBackground(data) {
-    let allItems = [];
-    if (data.aumentos) allItems = allItems.concat(data.aumentos);
-    if (data.entradasOferta) allItems = allItems.concat(data.entradasOferta);
-    if (data.rebaixas) allItems = allItems.concat(data.rebaixas);
-    if (data.terminosOferta) allItems = allItems.concat(data.terminosOferta);
-    if (data.semGiro) allItems = allItems.concat(data.semGiro);
-
-    const itemsToScrape = allItems.filter(item => {
-        const hasId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') || 
-                      (item.fornecedorCod && item.fornecedorCod !== 'N/A' && item.fornecedorCod !== '-') ||
-                      item.codInt;
-        return hasId && !getProductImage(item.codInt);
-    });
-
-    if (itemsToScrape.length === 0) return;
-    
-    window.cancelScraper = false;
-    const total = itemsToScrape.length;
-    let current = 0;
-    let scrapeStartTime = Date.now();
-
-    const overlay = document.getElementById('scraper-overlay');
-    const textProgress = document.getElementById('scraper-progress-text');
-    const barProgress = document.getElementById('scraper-progress-fill');
-    const textTime = document.getElementById('scraper-time-estimate');
-    const btnCancel = document.getElementById('btn-scraper-cancel');
-
-    const updateProgress = (cur) => {
-        if (textProgress) textProgress.textContent = `${cur} / ${total}`;
-        if (barProgress) barProgress.style.width = `${(cur / total) * 100}%`;
-    };
-
-    let timerInterval;
-
-    if (overlay) {
-        updateProgress(0);
-        overlay.classList.remove('hidden');
-        
-        timerInterval = setInterval(() => {
-            let remainingSecs = 0;
-            if (current > 0) {
-                const elapsedSecs = (Date.now() - scrapeStartTime) / 1000;
-                const avgSecs = elapsedSecs / current;
-                remainingSecs = Math.ceil(avgSecs * (total - current));
-            } else {
-                remainingSecs = Math.ceil(total * 1.5);
-            }
-            const mins = Math.floor(remainingSecs / 60);
-            const secs = remainingSecs % 60;
-            if (textTime) textTime.textContent = mins > 0 ? `${mins} min e ${secs} seg` : `${secs} segundos`;
-        }, 1000);
-        
-        btnCancel.onclick = () => {
-            window.cancelScraper = true;
-            btnCancel.textContent = "Interrompendo... por favor aguarde um momento.";
-            btnCancel.disabled = true;
-            btnCancel.style.background = "#9ca3af";
-            clearInterval(timerInterval);
-        };
-    }
-    
-    window.isScraping = true;
-
-    for (const item of itemsToScrape) {
-        if (window.cancelScraper) {
-            console.log("Scraping interrompido pelo usuário.");
-            break;
-        }
-
-        if (getProductImage(item.codInt)) {
-            current++;
-            updateProgress(current);
-            continue;
-        }
-
-        const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : item.codInt;
-
-        const result = await scrapeImageFromRiHappy(queryId);
-        if (result && result.imageUrl) {
-            console.log(`✨ Imagem resgatada com sucesso para: ${item.mercadoria}`);
-            saveProductImage(item.codInt, result.imageUrl, item.mercadoria);
-            
-            if (result.ean && (!item.ean || item.ean === 'N/A' || item.ean === '-')) {
-                item.ean = result.ean;
-            }
-        }
-        
-        current++;
-        updateProgress(current);
-        await new Promise(r => setTimeout(r, 300));
-    }
-
-    if (timerInterval) clearInterval(timerInterval);
-
-    if (currentGlobalData) renderResults(currentGlobalData);
-
-    if (overlay) {
-        overlay.classList.add('hidden');
-        btnCancel.textContent = "PULAR ISSO E VER O RELATÓRIO AGORA";
-        btnCancel.disabled = false;
-        btnCancel.style.background = "#ef4444";
-    }
-    window.isScraping = false;
-}
-
+// ─── Impressão ────────────────────────────────────────────────────────
 window.generatePrintReport = function() {
-    if (!currentGlobalData) return;
-
     const now = new Date();
     const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    let allItems = [];
-    if (currentGlobalData.aumentos) allItems = allItems.concat(currentGlobalData.aumentos);
-    if (currentGlobalData.entradasOferta) allItems = allItems.concat(currentGlobalData.entradasOferta);
-    if (currentGlobalData.rebaixas) allItems = allItems.concat(currentGlobalData.rebaixas);
-    if (currentGlobalData.terminosOferta) allItems = allItems.concat(currentGlobalData.terminosOferta);
-    if (currentGlobalData.semGiro) allItems = allItems.concat(currentGlobalData.semGiro);
-
-    const uniqueItems = [];
-    const seen = new Set();
-    allItems.forEach(item => {
-        if (!seen.has(item.codInt)) {
-            seen.add(item.codInt);
-            uniqueItems.push(item);
-        }
-    });
-
     const imgThumb = (codInt) => {
         const img = getProductImage(codInt);
-        return img ? `<img src="${img}" style="width:100%;height:150px;object-fit:contain;background:white;border-bottom:1px solid #eee;" />` : '<div style="height:150px; display:flex; align-items:center; justify-content:center; font-size:3rem; background:#f5f5f5;">📦</div>';
+        return img
+            ? `<img src="${img}" style="width:100%;height:150px;object-fit:contain;background:white;border-bottom:1px solid #eee;" />`
+            : `<div style="height:150px;display:flex;align-items:center;justify-content:center;font-size:3rem;background:#f5f5f5;">📦</div>`;
     };
 
-    let title = 'Catálogo de Produtos';
     let contentHtml = '<div class="grid-container">';
-
-    uniqueItems.forEach(item => {
+    products.forEach(item => {
         contentHtml += `
             <div class="card">
                 ${imgThumb(item.codInt)}
@@ -536,39 +358,35 @@ window.generatePrintReport = function() {
                     <div class="card-title">${item.mercadoria}</div>
                     <div class="card-meta">
                         <div><strong>SAP:</strong> ${item.codInt}</div>
-                        <div><strong>EAN:</strong> ${item.ean && item.ean !== 'N/A' && item.ean !== '-' ? item.ean : 'Sem EAN'}</div>
+                        <div><strong>EAN:</strong> ${item.ean && item.ean !== 'N/A' ? item.ean : 'Sem EAN'}</div>
                         <div><strong>Ref:</strong> ${item.fornecedorCod}</div>
                     </div>
                 </div>
             </div>
         `;
     });
-
     contentHtml += '</div>';
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<title>${title}</title>
+<title>Catálogo de Produtos</title>
 <style>
-  html, body { height: 100%; margin: 0; padding: 0; background: #fff; }
+  html, body { margin: 0; padding: 0; background: #fff; }
   body { font-family: sans-serif; color: #333; padding: 20px; }
   @page { size: A4 portrait; margin: 1cm; }
-  @media print { 
-    .no-print { display: none !important; } 
-    body { padding: 0; margin: 0; } 
-  }
-  .header { display:flex; justify-content:space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; }
-  .header h1 { margin:0; font-size: 1.5rem; color: #4b5563; }
-  .grid-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-  .card { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
-  .card-body { padding: 10px; }
-  .card-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 8px; line-height: 1.2; height: 3.6em; overflow: hidden; }
-  .card-meta { font-size: 0.75rem; color: #666; }
-  .card-meta div { margin-bottom: 3px; }
-  .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
-  .print-btn { padding: 10px 20px; background: #2575fc; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+  @media print { .no-print { display: none !important; } body { padding: 0; margin: 0; } }
+  .header { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ccc; padding-bottom:10px; margin-bottom:20px; }
+  .header h1 { margin:0; font-size:1.5rem; color:#4b5563; }
+  .grid-container { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; }
+  .card { border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; page-break-inside:avoid; }
+  .card-body { padding:10px; }
+  .card-title { font-size:0.9rem; font-weight:bold; margin-bottom:8px; line-height:1.2; height:3.6em; overflow:hidden; }
+  .card-meta { font-size:0.75rem; color:#666; }
+  .card-meta div { margin-bottom:3px; }
+  .btn-group { display:flex; justify-content:center; gap:10px; margin-bottom:20px; }
+  .print-btn { padding:10px 20px; background:#2575fc; color:white; border:none; border-radius:5px; cursor:pointer; font-size:1rem; font-weight:bold; }
 </style>
 </head>
 <body>
@@ -576,8 +394,8 @@ window.generatePrintReport = function() {
   <button class="print-btn" onclick="window.print()">🖨️ Salvar PDF / Imprimir Catálogo</button>
 </div>
 <div class="header">
-  <div><h1>📋 ${title}</h1></div>
-  <div style="text-align:right; font-size: 0.85rem; color: #666;"><strong>${dateStr}</strong><br>Gerado às ${timeStr}<br>Total: ${uniqueItems.length} itens</div>
+  <div><h1>📋 Catálogo de Produtos</h1></div>
+  <div style="text-align:right;font-size:0.85rem;color:#666;"><strong>${dateStr}</strong><br>Gerado às ${timeStr}<br>Total: ${products.length} itens</div>
 </div>
 ${contentHtml}
 </body>
@@ -587,10 +405,14 @@ ${contentHtml}
     if (win) {
         win.document.write(html);
         win.document.close();
-        win.onload = function() {
-            setTimeout(() => { win.print(); }, 500);
-        };
+        win.onload = () => setTimeout(() => win.print(), 500);
     } else {
-        alert("O bloqueador de pop-ups impediu a geração do catálogo. Por favor, permita pop-ups para este site.");
+        alert('O bloqueador de pop-ups impediu a geração do catálogo. Por favor, permita pop-ups para este site.');
     }
-}
+};
+
+// ─── Inicialização ────────────────────────────────────────────────────
+resultsContainer.classList.remove('hidden');
+const dropZone = document.getElementById('drop-zone');
+if (dropZone) dropZone.style.display = 'none';
+renderCatalog();
