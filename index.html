@@ -51,16 +51,15 @@
 
 
       <div id="results" class="results-container hidden">
-        <div class="actions-bar no-print">
-          <div class="action-instructions">
-            <h3>Passo 2: Escolha como você quer trabalhar</h3>
-            <p>Você pode imprimir a lista completa (Aumentos, Ofertas e Rebaixas) na tabela. <strong>No Modo Varredura, mostraremos apenas os Aumentos e Términos de Oferta, focando 100% em evitar prejuízos de erro de preço.</strong></p>
-          </div>
-          <div class="actions-wrapper">
-            <div class="left-actions" style="display: none;">
-              <!-- Removed mode switch buttons, we only use Table/Print mode now -->
+        <div class="actions-bar no-print" style="margin-bottom: 1rem;">
+          <div class="actions-wrapper" style="flex-direction: column; gap: 15px;">
+            <div class="search-container" style="width: 100%;">
+              <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="Pesquisar por Nome, SAP ou EAN..." autocomplete="off">
+              </div>
             </div>
-            <div class="right-actions">
+            <div class="right-actions" style="width: 100%; justify-content: flex-end; display: flex;">
               <button id="btn-print" class="btn-print">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                 Imprimir Relatório
@@ -72,125 +71,15 @@
           </div>
         </div>
 
-        <!-- MODO TABELA -->
-        <div id="view-table">
-          <!-- AUMENTO -->
-          <section class="category-card" id="card-aumentos">
-            <div class="card-header danger">
-              <div class="card-title">
-                <span class="icon">📈</span>
-                <h2>AUMENTO DE PREÇO (PRIORIDADE MÁXIMA)</h2>
-              </div>
-              <div class="instructions-box-table">
-                <p><strong>O que você deve fazer:</strong></p>
-                <ol>
-                  <li>Vá até a loja e encontre os produtos desta lista. Verifique em todos os lugares (ponto natural, pontas de gôndola e vitrine).</li>
-                  <li>Imprima as etiquetas com o preço novo (Atual).</li>
-                  <li><strong>Retire a etiqueta antiga e coloque a nova imediatamente.</strong> Se o cliente pagar o preço antigo no caixa, a loja perde dinheiro!</li>
-                </ol>
-              </div>
-            </div>
-            <div class="table-container">
-              <table id="table-aumentos">
-                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Saindo de:</th><th>Aumentando para:</th><th>Aumento de:</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
-
-          <!-- OFERTAS -->
-          <section class="category-card" id="card-ofertas">
-            <div class="card-header success">
-              <div class="card-title">
-                <span class="icon">🏷️</span>
-                <h2>ENTRADA DE OFERTA</h2>
-              </div>
-              <div class="instructions-box-table">
-                <p><strong>O que você deve fazer:</strong></p>
-                <ol>
-                  <li>Estes produtos estão entrando em promoção hoje.</li>
-                  <li>Imprima os cartazes promocionais amarelos com o valor da "Oferta".</li>
-                  <li>Coloque na loja para destacar bem o produto para o cliente.</li>
-                </ol>
-              </div>
-            </div>
-            <div class="table-container">
-              <table id="table-ofertas">
-                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Preço Normal:</th><th>Oferta para:</th><th>Desconto de:</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
-
-          <!-- REBAIXA -->
-          <section class="category-card" id="card-rebaixas">
-            <div class="card-header info">
-              <div class="card-title">
-                <span class="icon">📉</span>
-                <h2>REBAIXA DE PREÇO (NÃO É OFERTA)</h2>
-              </div>
-              <div class="instructions-box-table">
-                <p><strong>O que você deve fazer:</strong></p>
-                <ol>
-                  <li>O preço base do produto caiu. Isso não é uma promoção amarela.</li>
-                  <li>Imprima etiquetas brancas normais com o "Novo Preço".</li>
-                  <li>Vá até a loja e substitua a etiqueta antiga pela nova.</li>
-                </ol>
-              </div>
-            </div>
-            <div class="table-container">
-              <table id="table-rebaixas">
-                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Saindo de:</th><th>Baixando para:</th><th>Redução de:</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
-
-          <!-- TÉRMINO DE OFERTA -->
-          <section class="category-card" id="card-terminos">
-            <div class="card-header warning">
-              <div class="card-title">
-                <span class="icon">❌</span>
-                <h2>TÉRMINO DE OFERTA</h2>
-              </div>
-              <div class="instructions-box-table">
-                <p><strong>O que você deve fazer:</strong></p>
-                <ol>
-                  <li>A promoção destes produtos acabou. O preço voltou a subir.</li>
-                  <li>Vá na loja e <strong>retire todos os cartazes e etiquetas amarelas</strong>.</li>
-                  <li>Coloque a etiqueta branca com o preço "Novo Preço" para evitar que o cliente exija o desconto vencido.</li>
-                </ol>
-              </div>
-            </div>
-            <div class="table-container">
-              <table id="table-terminos">
-                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Saindo da Oferta:</th><th>Voltando para:</th><th>Aumento de:</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
-
-          <!-- SEM GIRO (APENAS PARA CARREGAR IMAGENS) -->
-          <section class="category-card" id="card-sem-giro" style="display: none;">
-            <div class="card-header" style="background: #4b5563; color: white;">
-              <div class="card-title">
-                <span class="icon">🖼️</span>
-                <h2>ITENS SEM GIRO (CARREGAMENTO DE IMAGENS)</h2>
-              </div>
-              <div class="instructions-box-table">
-                <p>Este arquivo foi identificado como <strong>Mercadorias sem Giro</strong>. Ele serve para que o robô faça uma varredura intensiva e baixe as imagens, enriquecendo o banco de dados do sistema para os próximos relatórios.</p>
-                <p>Você pode conferir as fotos abaixo ou preencher manualmente usando o botão de edição nas caixas vazias.</p>
-              </div>
-            </div>
-            <div class="table-container">
-              <table id="table-sem-giro">
-                <thead><tr><th>Foto</th><th style="width: 40%">Produto</th><th>Estoque</th><th>Preço Venda</th><th>Preço Promo</th><th>Status</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
+        <!-- MODO CATÁLOGO -->
+        <div id="view-catalog" class="catalog-view">
+          <div id="catalog-grid" class="catalog-grid">
+            <!-- Cards de produtos serão injetados aqui via main.js -->
+          </div>
+          <div id="catalog-empty-state" class="empty-state hidden">
+            Nenhum produto encontrado na sua pesquisa.
+          </div>
         </div>
-
       </div>
     </main>
 
