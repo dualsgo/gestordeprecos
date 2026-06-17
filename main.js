@@ -28,6 +28,26 @@ let currentAddingImageEan = null;
 window.isScraping = false;
 let startTime = null;
 
+const CATALOG_KEY = 'atupreco_catalog_data';
+
+function saveCatalogData(data) {
+    try {
+        localStorage.setItem(CATALOG_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.error('Erro ao salvar catálogo', e);
+    }
+}
+
+function loadCatalogData() {
+    try {
+        const raw = localStorage.getItem(CATALOG_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch (e) {
+        console.error('Erro ao carregar catálogo', e);
+    }
+    return null;
+}
+
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
@@ -62,6 +82,8 @@ btnNew.addEventListener('click', () => {
     fileInput.value = '';
     dropText.textContent = "Aguardando arquivo...";
     startTime = null;
+    currentGlobalData = null;
+    localStorage.removeItem(CATALOG_KEY);
 });
 
 // Modal Logic
@@ -191,6 +213,7 @@ async function handleFile(file) {
     try {
         const data = await processFile(file);
         currentGlobalData = data;
+        saveCatalogData(data);
         
         startTime = new Date();
         statStart.textContent = startTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
@@ -210,6 +233,17 @@ async function handleFile(file) {
         dropText.textContent = "Aguardando arquivo...";
     }
 }
+
+// Carrega automaticamente o catálogo salvo ao iniciar
+(function initCatalog() {
+    const saved = loadCatalogData();
+    if (saved) {
+        currentGlobalData = saved;
+        renderResults(saved);
+        resultsContainer.classList.remove('hidden');
+        dropZone.style.display = 'none';
+    }
+})();
 
 function groupItemsByFornecedor(items) {
     const grouped = {};
