@@ -411,8 +411,189 @@ ${contentHtml}
     }
 };
 
+// ─── Importação de Planilha Excel (SheetJS) e Scraping Automático ─────
+const btnImportExcel = document.getElementById('btn-import-excel');
+const inputImportExcel = document.getElementById('import-excel-input');
+
+if (btnImportExcel && inputImportExcel) {
+    btnImportExcel.addEventListener('click', () => {
+        inputImportExcel.click();
+    });
+
+    inputImportExcel.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = evt.target.result;
+                const workbook = window.XLSX.read(data, { type: 'binary' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (rows.length === 0) {
+                    alert('A planilha está vazia.');
+                    return;
+                }
+
+                // Detecta qual coluna tem qual informação pela primeira linha (header)
+                const headers = rows[0].map(h => typeof h === 'string' ? h.toUpperCase().trim() : '');
+                
+                let idxCod = headers.findIndex(h => h.includes('COD') || h.includes('SAP') || h.includes('PRODUTO'));
+                let idxName = headers.findIndex(h => h.includes('DESC') || h.includes('MERCADORIA') || h.includes('NOME'));
+                let idxEan = headers.findIndex(h => h.includes('EAN') || h.includes('BARRAS'));
+                let idxFornecedor = headers.findIndex(h => h.includes('FORN'));
+                
+                // Defaults if not clearly identified
+                if (idxCod === -1) idxCod = 0;
+                if (idxName === -1) idxName = 1;
+
+                let importedCount = 0;
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+
+                    let codRaw = row[idxCod];
+                    if (codRaw === undefined || codRaw === null || String(codRaw).trim() === '') continue;
+
+                    const codInt = String(codRaw).trim();
+                    const mercadoria = String(row[idxName] || 'Produto sem nome').trim();
+                    const ean = idxEan !== -1 ? String(row[idxEan] || 'N/A').trim() : 'N/A';
+                    const fornecedorCod = idxFornecedor !== -1 ? String(row[idxFornecedor] || '-').trim() : '-';
+
+                    // Evita duplicatas pelo codInt
+                    if (!products.some(p => p.codInt === codInt)) {
+                        products.push({
+                            codInt,
+                            mercadoria,
+                            ean,
+                            fornecedorCod,
+                            fornecedor: 'IMPORTADO',
+                            precoAnterior: 0,
+                            novoPreco: 0,
+                            estoque: '0'
+                        });
+                        importedCount++;
+                    }
+                }
+
+                saveProducts(products);
+                renderCatalog();
+                alert(`${importedCount} novos produtos importados com sucesso! Buscando imagens...`);
+                
+                // Inicia o auto-scraper para preencher imagens faltantes
+                runAutoScraperInBackground();
+
+            } catch (err) {
+                console.error(err);
+                alert('Erro ao ler o arquivo Excel. Verifique o formato.');
+            } finally {
+                inputImportExcel.value = '';
+            }
+        };
+        reader.readAsBinaryString(file);
+    });
+}
+
+window.cancelScraper = false;
+async function runAutoScraperInBackground() {
+    const itemsToScrape = products.filter(item => {
+        const hasId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') || 
+                      (item.fornecedorCod && item.fornecedorCod !== 'N/A' && item.fornecedorCod !== '-') ||
+                      item.codInt;
+        return hasId && !getProductImage(item.codInt);
+    });
+
+    if (itemsToScrape.length === 0) return;
+    
+    window.cancelScraper = false;
+    const total = itemsToScrape.length;
+    let current = 0;
+    let scrapeStartTime = Date.now();
+
+    const overlay = document.getElementById('scraper-overlay');
+    const textProgress = document.getElementById('scraper-progress-text');
+    const barProgress = document.getElementById('scraper-progress-fill');
+    const textTime = document.getElementById('scraper-time-estimate');
+    const btnCancel = document.getElementById('btn-scraper-cancel');
+
+    const updateProgress = (cur) => {
+        if (textProgress) textProgress.textContent = `${cur} / ${total}`;
+        if (barProgress) barProgress.style.width = `${(cur / total) * 100}%`;
+    };
+
+    let timerInterval;
+    if (overlay) {
+        updateProgress(0);
+        overlay.classList.remove('hidden');
+        
+        timerInterval = setInterval(() => {
+            let remainingSecs = 0;
+            if (current > 0) {
+                const elapsedSecs = (Date.now() - scrapeStartTime) / 1000;
+                const avgSecs = elapsedSecs / current;
+                remainingSecs = Math.ceil(avgSecs * (total - current));
+            } else {
+                remainingSecs = Math.ceil(total * 1.5);
+            }
+            const mins = Math.floor(remainingSecs / 60);
+            const secs = remainingSecs % 60;
+            if (textTime) textTime.textContent = mins > 0 ? `${mins} min e ${secs} seg` : `${secs} segundos`;
+        }, 1000);
+        
+        btnCancel.onclick = () => {
+            window.cancelScraper = true;
+            btnCancel.textContent = "Interrompendo... por favor aguarde um momento.";
+            btnCancel.disabled = true;
+            btnCancel.style.background = "#9ca3af";
+            clearInterval(timerInterval);
+        };
+    }
+
+    for (const item of itemsToScrape) {
+        if (window.cancelScraper) break;
+        if (getProductImage(item.codInt)) {
+            current++;
+            updateProgress(current);
+            continue;
+        }
+
+        const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : item.codInt;
+
+        try {
+            const result = await scrapeImageFromRiHappy(queryId);
+            if (result && result.imageUrl) {
+                saveProductImage(item.codInt, result.imageUrl, item.mercadoria);
+                if (result.ean && (!item.ean || item.ean === 'N/A' || item.ean === '-')) {
+                    item.ean = result.ean;
+                    saveProducts(products); // Salva EAN descoberto
+                }
+            }
+        } catch(e) {
+            // Ignora erro e continua
+        }
+        
+        current++;
+        updateProgress(current);
+        await new Promise(r => setTimeout(r, 400));
+    }
+
+    if (timerInterval) clearInterval(timerInterval);
+    renderCatalog();
+
+    if (overlay) {
+        overlay.classList.add('hidden');
+        btnCancel.textContent = "PULAR ISSO E VER O RELATÓRIO AGORA";
+        btnCancel.disabled = false;
+        btnCancel.style.background = "#ef4444";
+    }
+}
+
 // ─── Inicialização ────────────────────────────────────────────────────
 resultsContainer.classList.remove('hidden');
 const dropZone = document.getElementById('drop-zone');
 if (dropZone) dropZone.style.display = 'none';
 renderCatalog();
+
