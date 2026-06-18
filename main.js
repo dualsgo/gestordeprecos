@@ -597,3 +597,69 @@ const dropZone = document.getElementById('drop-zone');
 if (dropZone) dropZone.style.display = 'none';
 renderCatalog();
 
+async function autoLoadCampaignDatabase() {
+    try {
+        const filename = encodeURIComponent('MAIS DIVERSÃO POR MENOS - CAMPANHA AGING.xlsx');
+        const response = await fetch('./' + filename);
+        if (!response.ok) {
+            console.log('Campanha AGING não encontrada ou erro no fetch.');
+            return;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = window.XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (rows.length === 0) return;
+
+        const headers = rows[0].map(h => typeof h === 'string' ? h.toUpperCase().trim() : '');
+        let idxCod = headers.findIndex(h => h.includes('COD') || h.includes('SAP') || h.includes('PRODUTO'));
+        let idxName = headers.findIndex(h => h.includes('DESC') || h.includes('MERCADORIA') || h.includes('NOME'));
+        let idxFornecedor = headers.findIndex(h => h.includes('FORN'));
+        
+        if (idxCod === -1) idxCod = 0;
+        if (idxName === -1) idxName = 1;
+
+        let importedCount = 0;
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            let codRaw = row[idxCod];
+            if (codRaw === undefined || codRaw === null || String(codRaw).trim() === '') continue;
+
+            const codInt = String(codRaw).trim();
+            const mercadoria = String(row[idxName] || 'Produto sem nome').trim();
+            const fornecedorStr = idxFornecedor !== -1 ? String(row[idxFornecedor] || '-').trim() : '-';
+
+            if (!products.some(p => p.codInt === codInt)) {
+                products.push({
+                    codInt,
+                    mercadoria,
+                    ean: 'N/A',
+                    fornecedorCod: '-',
+                    fornecedor: fornecedorStr,
+                    precoAnterior: 0,
+                    novoPreco: 0,
+                    estoque: '0'
+                });
+                importedCount++;
+            }
+        }
+
+        if (importedCount > 0) {
+            saveProducts(products);
+            renderCatalog();
+            console.log(`${importedCount} novos produtos carregados da campanha!`);
+            runAutoScraperInBackground();
+        }
+    } catch (err) {
+        console.error('Erro ao auto-carregar campanha:', err);
+    }
+}
+
+// Call the auto load function
+autoLoadCampaignDatabase();
+
