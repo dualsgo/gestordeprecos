@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gestor de Alteração de Preços</title>
+    <title>Catálogo Itens Aging</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
@@ -12,8 +12,8 @@
     <header class="app-header no-print">
       <div class="header-content">
         <div>
-          <h1>Gestor de Prevenção: Erro de Preço</h1>
-          <p>Foco na redução de descontos indevidos priorizando altas de preço no chão de loja.</p>
+          <h1>Catálogo Itens Aging</h1>
+          <p>Catálogo interativo para acompanhamento dos itens da campanha de aging.</p>
         </div>
         <div id="operation-stats" class="hidden">
           <div class="stat-box">
@@ -37,9 +37,9 @@
       <div id="drop-zone" class="drop-zone no-print">
         <div class="drop-content">
           <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-          <h2>Insira o Relatório do Sistema</h2>
+          <h2>Insira a Planilha da Campanha</h2>
           <div class="instructions-box">
-            <p><strong>1.</strong> Salve o <strong>Relatório Diário</strong> (ou Relatório Circular) no seu computador.</p>
+            <p><strong>1.</strong> Salve a <strong>Planilha da Campanha</strong> no seu computador.</p>
             <p><strong>2.</strong> Clique no botão abaixo ou arraste o arquivo até aqui.</p>
           </div>
           <label for="file-input" class="btn-attach">
@@ -67,7 +67,7 @@
               </button>
               <button id="btn-print" class="btn-print">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                Imprimir Relatório
+                Imprimir Catálogo
               </button>
             </div>
           </div>
@@ -107,7 +107,7 @@
     <div id="scraper-overlay" class="modal hidden" style="z-index: 9999;">
       <div class="modal-content" style="text-align: center; max-width: 600px;">
         <h2 style="margin-bottom: 15px; color: var(--primary-color);">Baixando Imagens 🖼️</h2>
-        <p style="font-size: 1.1rem; color: #555; margin-bottom: 10px;">Isso vai enriquecer o seu relatório para facilitar a vida na loja.</p>
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 10px;">Isso vai enriquecer o seu catálogo para facilitar a vida na loja.</p>
         
         <div style="font-size: 2.5rem; font-weight: 800; color: #1f2937; margin: 20px 0;" id="scraper-progress-text">0 / 0</div>
         
@@ -118,11 +118,11 @@
         <p style="font-weight: bold; color: #f59e0b; font-size: 1.1rem; margin-bottom: 30px;">⏳ Tempo estimado: <span id="scraper-time-estimate">--</span></p>
         
         <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
-          <p style="margin-bottom: 5px; color: #b45309;"><strong>💡 Dica de Ouro:</strong> As imagens evitam erros e aceleram muito a operação de troca de preço.</p>
+          <p style="margin-bottom: 5px; color: #b45309;"><strong>💡 Dica de Ouro:</strong> As imagens evitam erros e aceleram muito a identificação dos itens.</p>
           <p style="font-size: 0.95rem; color: #d97706;">Porém, se você estiver com muita pressa, pode interromper o download agora. Você sempre pode usar a opção de consultar os itens sem foto clicando neles na tabela depois.</p>
         </div>
         
-        <button id="btn-scraper-cancel" class="btn-cancel" style="background: #ef4444; color: white; width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">PULAR ISSO E VER O RELATÓRIO AGORA</button>
+        <button id="btn-scraper-cancel" class="btn-cancel" style="background: #ef4444; color: white; width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">PULAR ISSO E VER O CATÁLOGO AGORA</button>
       </div>
     </div>
 

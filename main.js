@@ -585,7 +585,7 @@ async function runAutoScraperInBackground() {
 
     if (overlay) {
         overlay.classList.add('hidden');
-        btnCancel.textContent = "PULAR ISSO E VER O RELATÓRIO AGORA";
+        btnCancel.textContent = "PULAR ISSO E VER O CATÁLOGO AGORA";
         btnCancel.disabled = false;
         btnCancel.style.background = "#ef4444";
     }
