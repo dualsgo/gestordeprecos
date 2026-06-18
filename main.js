@@ -1,4 +1,4 @@
-import { getProductImage, saveProductImage, deleteProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, saveDatabase } from './store.js';
+import { getProductImage, saveProductImage, deleteProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, initOnlineDatabase } from './store.js';
 
 // ─── Chaves de persistência ───────────────────────────────────────────
 const CATALOG_KEY = 'atupreco_catalog_products';
@@ -595,7 +595,6 @@ async function runAutoScraperInBackground() {
 resultsContainer.classList.remove('hidden');
 const dropZone = document.getElementById('drop-zone');
 if (dropZone) dropZone.style.display = 'none';
-renderCatalog();
 
 async function autoLoadCampaignDatabase() {
     try {
@@ -660,6 +659,12 @@ async function autoLoadCampaignDatabase() {
     }
 }
 
-// Call the auto load function
-autoLoadCampaignDatabase();
+// Inicia banco de dados online e depois carrega a interface
+async function bootstrap() {
+    await initOnlineDatabase();
+    renderCatalog();
+    autoLoadCampaignDatabase();
+}
+
+bootstrap();
 

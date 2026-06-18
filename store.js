@@ -1,25 +1,47 @@
-// store.js - Camada de Persistência Local
+// store.js - Camada de Persistência Híbrida (Vercel KV + LocalStorage)
 
 const STORE_KEY = 'atupreco_images_db';
+let memoryDb = null;
 
-export function getDatabase() {
+// Inicializa lendo do Vercel KV e guarda na memória (chamado no início do main.js)
+export async function initOnlineDatabase() {
+    // 1. Tenta pegar o que tem no localStorage primeiro para a tela abrir rápido
     try {
-        const data = localStorage.getItem(STORE_KEY);
-        if (data) {
-            return JSON.parse(data);
+        const localData = localStorage.getItem(STORE_KEY);
+        if (localData) memoryDb = JSON.parse(localData);
+    } catch (e) {}
+
+    if (!memoryDb) memoryDb = {};
+
+    // 2. Busca na nuvem a versão oficial
+    try {
+        const res = await fetch('/api/images');
+        if (res.ok) {
+            const data = await res.json();
+            memoryDb = data;
+            // Sincroniza o cache local
+            localStorage.setItem(STORE_KEY, JSON.stringify(memoryDb));
+            return true;
         }
     } catch (e) {
-        console.error("Erro ao ler banco local", e);
+        console.warn("Aviso: Vercel KV não respondeu. Usando cache local.", e);
     }
+    return false;
+}
+
+export function getDatabase() {
+    if (memoryDb) return memoryDb;
+    try {
+        const data = localStorage.getItem(STORE_KEY);
+        if (data) return JSON.parse(data);
+    } catch (e) {}
     return {};
 }
 
-export function saveDatabase(db) {
+function saveLocalDatabase(db) {
     try {
         localStorage.setItem(STORE_KEY, JSON.stringify(db));
-    } catch (e) {
-        console.error("Erro ao salvar no banco local", e);
-    }
+    } catch (e) {}
 }
 
 export function getProductImage(codInt) {
@@ -28,24 +50,34 @@ export function getProductImage(codInt) {
 }
 
 export function saveProductImage(codInt, imageUrl, productName) {
-    const db = getDatabase();
-    if (!db[codInt]) {
-        db[codInt] = { nome: productName };
-    }
-    db[codInt].image = imageUrl;
-    saveDatabase(db);
+    // 1. Atualiza memória e localStorage na hora para ficar rápido pro usuário
+    if (!memoryDb) memoryDb = getDatabase();
+    if (!memoryDb[codInt]) memoryDb[codInt] = { nome: productName };
+    memoryDb[codInt].image = imageUrl;
+    saveLocalDatabase(memoryDb);
+
+    // 2. Envia para o Vercel KV em background
+    fetch('/api/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codInt, imageUrl, productName })
+    }).catch(e => console.warn('Erro ao sincronizar imagem na nuvem:', e));
 }
 
 export function deleteProductImage(codInt) {
-    const db = getDatabase();
-    if (db[codInt]) {
-        delete db[codInt].image;
-        // Se ficar vazio, limpa a chave
-        if (Object.keys(db[codInt]).length <= 1) {
-            delete db[codInt];
+    // 1. Remove da memória e localStorage na hora
+    if (!memoryDb) memoryDb = getDatabase();
+    if (memoryDb[codInt]) {
+        delete memoryDb[codInt].image;
+        if (Object.keys(memoryDb[codInt]).length <= 1) {
+            delete memoryDb[codInt];
         }
-        saveDatabase(db);
+        saveLocalDatabase(memoryDb);
     }
+
+    // 2. Remove do Vercel KV em background
+    fetch(`/api/images?codInt=${codInt}`, { method: 'DELETE' })
+      .catch(e => console.warn('Erro ao remover imagem da nuvem:', e));
 }
 
 // Inferência de categoria para mostrar ícones úteis quando não tem foto
