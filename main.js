@@ -1,4 +1,4 @@
-import { getProductImage, saveProductImage, deleteProductImage, getCategoryIcon, scrapeImageFromRiHappy, getDatabase, initOnlineDatabase } from './store.js';
+import { getProductImage, saveProductImage, deleteProductImage, getCategoryIcon, scrapeImageFromPBKids, getDatabase, initOnlineDatabase } from './store.js';
 
 // ─── Chaves de persistência ───────────────────────────────────────────
 const CATALOG_KEY = 'atupreco_catalog_products';
@@ -138,10 +138,19 @@ btnAdd.className = 'btn-add-product';
 btnAdd.innerHTML = '＋ Adicionar Produto';
 btnAdd.addEventListener('click', () => openProductModal(null));
 
+const btnUpdateImages = document.createElement('button');
+btnUpdateImages.id = 'btn-update-images';
+btnUpdateImages.className = 'btn-new';
+btnUpdateImages.innerHTML = '🔄 Buscar Imagens';
+btnUpdateImages.addEventListener('click', () => runAutoScraperInBackground());
+
 const actionsWrapper = document.querySelector('.actions-wrapper');
 if (actionsWrapper) {
     const rightActions = actionsWrapper.querySelector('.right-actions');
-    if (rightActions) rightActions.prepend(btnAdd);
+    if (rightActions) {
+        rightActions.prepend(btnAdd);
+        rightActions.prepend(btnUpdateImages);
+    }
 }
 
 // ─── Impressão ────────────────────────────────────────────────────────
@@ -183,7 +192,7 @@ window.openImageModal = function(codInt, productName, ean) {
     const query       = encodeURIComponent(productName);
     const googleLink  = `<a href="https://www.google.com/search?tbm=isch&q=${query}" target="_blank">🔍 Buscar no Google Imagens</a>`;
     const rihappyQuery = (ean && ean !== 'N/A' && ean !== '-') ? ean : codInt;
-    const rihappyLink  = `<a href="https://www.rihappy.com.br/${rihappyQuery}/rihappy?map=ft,vendido-por" target="_blank">🧸 Buscar na RiHappy</a>`;
+    const rihappyLink  = `<a href="https://www.pbkids.com.br/${rihappyQuery}/pbkids?map=ft" target="_blank">🧸 Buscar na PBKids</a>`;
     searchHelperLinks.innerHTML = `${googleLink} ${rihappyLink}`;
 
     const btnDelete = document.getElementById('btn-modal-delete');
@@ -213,12 +222,12 @@ if (btnModalAutoSearch) {
         statusDiv.style.color = '#f59e0b';
         const queryId = (currentAddingImageEan && currentAddingImageEan !== 'N/A' && currentAddingImageEan !== '-')
             ? currentAddingImageEan : currentAddingImageCode;
-        const imageUrl = await scrapeImageFromRiHappy(queryId);
-        if (imageUrl) {
+        const result = await scrapeImageFromPBKids(queryId);
+        if (result && result.imageUrl) {
             statusDiv.textContent = '✅ Imagem encontrada!';
             statusDiv.style.color = '#10b981';
-            imgUrlInput.value = imageUrl;
-            saveProductImage(currentAddingImageCode, imageUrl, currentAddingImageName);
+            imgUrlInput.value = result.imageUrl;
+            saveProductImage(currentAddingImageCode, result.imageUrl, currentAddingImageName);
             renderCatalog();
             setTimeout(closeImageModal, 1000);
         } else {
@@ -563,16 +572,22 @@ async function runAutoScraperInBackground() {
         const queryId = (item.ean && item.ean !== 'N/A' && item.ean !== '-') ? item.ean : item.codInt;
 
         try {
-            const result = await scrapeImageFromRiHappy(queryId);
+            const result = await scrapeImageFromPBKids(queryId);
             if (result && result.imageUrl) {
                 saveProductImage(item.codInt, result.imageUrl, item.mercadoria);
                 if (result.ean && (!item.ean || item.ean === 'N/A' || item.ean === '-')) {
                     item.ean = result.ean;
-                    saveProducts(products); // Salva EAN descoberto
+                    saveProducts(products); // Salva EAN descoberto se não tinha
                 }
             }
         } catch(e) {
-            // Ignora erro e continua
+            // Tenta fallback com codInt se a primeira falhou e era EAN
+            if (queryId !== item.codInt) {
+                try {
+                    const fallback = await scrapeImageFromPBKids(item.codInt);
+                    if (fallback && fallback.imageUrl) saveProductImage(item.codInt, fallback.imageUrl, item.mercadoria);
+                } catch(err) {}
+            }
         }
         
         current++;

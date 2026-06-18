@@ -95,19 +95,19 @@ export function getCategoryIcon(productName) {
 }
 
 // Scraper via Proxy local (Vite)
-export async function scrapeImageFromRiHappy(ean) {
-    if (!ean || ean === 'N/A' || ean === '-') return null;
+export async function scrapeImageFromPBKids(queryId) {
+    if (!queryId || queryId === 'N/A' || queryId === '-') return null;
     
-    const targetPath = `/${ean}/rihappy?map=ft,vendido-por`;
-    const targetUrl = encodeURIComponent(`https://www.rihappy.com.br${targetPath}`);
+    // Na PBKids, a busca por EAN ou Referência costuma funcionar com o termo exato
+    const targetPath = `/${queryId}?_q=${queryId}&map=ft`;
+    const targetUrl = encodeURIComponent(`https://www.pbkids.com.br${targetPath}`);
     const proxies = [
-        `/api/rihappy${targetPath}`,
+        `/api/pbkids${targetPath}`,
         `https://api.allorigins.win/get?url=${targetUrl}`,
-        `https://api.codetabs.com/v1/proxy?quest=https://www.rihappy.com.br${targetPath}`
+        `https://api.codetabs.com/v1/proxy?quest=https://www.pbkids.com.br${targetPath}`
     ];
 
     const fetchProxy = async (proxyUrl) => {
-        // Reduzimos o timeout de 8s para 5s
         const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
         if (!response.ok) throw new Error("Erro na requisição ou status != 2xx");
         
@@ -121,6 +121,7 @@ export async function scrapeImageFromRiHappy(ean) {
         
         let imageUrl = null;
         let extractedEan = null;
+        let extractedRef = null;
 
         // 1. Tentar pegar do JSON-LD (Schema.org Product)
         const ldScripts = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
@@ -160,12 +161,20 @@ export async function scrapeImageFromRiHappy(ean) {
                                    html.match(/<img[^>]+class="[^"]*vtex-product-summary-2-x-imageNormal[^"]*"[^>]+src="([^"]+)"[^>]*>/i) ||
                                    html.match(/src="([^"]+\/arquivos\/ids\/[^"]+)"/i);
                                    
-            if (searchImgMatch && searchImgMatch[1]) {
+            if (searchImgMatch && searchImgMatch[1] && !searchImgMatch[1].includes('logo')) {
                 imageUrl = searchImgMatch[1].replace(/&amp;/g, '&');
             }
         }
 
-        // 5. Tentar resgatar o EAN do DOM caso não tenha achado no JSON-LD
+        // 5. Resgatar Referência e EAN do DOM
+        if (!extractedRef) {
+            const domRefMatch = html.match(/data-specification-name="Refer\u00eancia"[^>]*>.*?<\/span>.*?data-specification-value="([^"]+)"/i) ||
+                                html.match(/data-specification-name="Referência"[^>]*>.*?<\/span>.*?data-specification-value="([^"]+)"/i);
+            if (domRefMatch && domRefMatch[1]) {
+                extractedRef = domRefMatch[1];
+            }
+        }
+        
         if (!extractedEan) {
             const domEanMatch = html.match(/data-specification-name="C\u00f3digo de Barras" data-specification-value="(\d+)"/i) ||
                                 html.match(/data-specification-name="C\u00f3digo de Barras"[^>]*>.*?<\/span>.*?data-specification-value="(\d+)"/i);
@@ -175,17 +184,15 @@ export async function scrapeImageFromRiHappy(ean) {
         }
 
         if (imageUrl) {
-            return { imageUrl, ean: extractedEan };
+            return { imageUrl, ean: extractedEan, ref: extractedRef };
         }
         
-        throw new Error("Imagem não encontrada");
+        throw new Error("Imagem não encontrada na PBKids");
     };
 
     try {
-        // Dispara todos os proxies simultaneamente e usa o primeiro que der certo (Promise.any)
         return await Promise.any(proxies.map(fetchProxy));
     } catch (e) {
-        // Cai aqui se TODOS os proxies falharem
         return null;
     }
 }
